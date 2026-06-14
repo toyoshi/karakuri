@@ -22,6 +22,11 @@
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   function go(i: number) { game.loadLevel(i); history.replaceState(null, '', '#' + LEVELS[i].id); }
+  // keep the active level visible as the nav scrolls
+  $effect(() => {
+    game.levelIdx;
+    queueMicrotask(() => document.querySelector('.levelnav .lvl.on')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
+  });
   function closeIntro() { showIntro = false; try { localStorage.setItem('karakuri.seenIntro', '1'); } catch {} }
 </script>
 
@@ -64,15 +69,17 @@
 
 <style>
   .ghead {
-    display: flex; align-items: center; gap: var(--sp-5); height: 60px; padding-inline: var(--sp-5);
+    display: flex; align-items: center; gap: var(--sp-3); height: 60px; padding-inline: var(--sp-4);
     border-bottom: 1px solid var(--line); background: var(--ink-850);
   }
-  .brand { display: flex; align-items: center; gap: 0.5em; font-family: var(--font-display); font-size: 1.2rem; color: var(--paper); }
-  .levelnav { display: flex; gap: 6px; margin-inline: auto; }
+  .brand { flex: none; display: flex; align-items: center; gap: 0.5em; font-family: var(--font-display); font-size: 1.2rem; color: var(--paper); }
+  .levelnav { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 7px 2px; scrollbar-width: thin; }
+  .levelnav::-webkit-scrollbar { height: 6px; }
+  .levelnav::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 6px; }
   .lvl {
-    display: flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: var(--r-full);
+    flex: none; display: flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: var(--r-full);
     border: 1px solid var(--line); background: var(--ink-700); color: var(--muted); cursor: pointer;
-    font-family: inherit; font-size: var(--step--1); transition: all 0.15s;
+    font-family: inherit; font-size: var(--step--1); transition: border-color 0.15s, color 0.15s, background 0.15s;
   }
   .lvl:hover { border-color: var(--line-strong); color: var(--paper-2); }
   .lvl.on { border-color: var(--brass); color: var(--brass); background: color-mix(in srgb, var(--brass) 10%, var(--ink-700)); }
@@ -81,7 +88,7 @@
   .lvl .nm { font-size: 0.78rem; }
   @media (max-width: 720px) { .lvl .nm { display: none; } }
 
-  .right { display: flex; align-items: center; gap: var(--sp-3); }
+  .right { flex: none; display: flex; align-items: center; gap: var(--sp-3); }
   .introbtn { background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-full); color: var(--paper-2); padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 0.72rem; }
   .introbtn:hover { border-color: var(--brass); color: var(--brass); }
   .lang { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-full); overflow: hidden; }
