@@ -6,15 +6,23 @@
   import Editor from './Editor.svelte';
   import Palette from './Palette.svelte';
   import GoalPanel from './GoalPanel.svelte';
+  import IntroModal from './IntroModal.svelte';
+
+  let showIntro = $state(false);
 
   onMount(() => {
-    const h = location.hash.slice(1);
-    const idx = LEVELS.findIndex(l => l.id === h);
+    const fromHash = () => { const h = location.hash.slice(1); return LEVELS.findIndex(l => l.id === h); };
+    const idx = fromHash();
     game.loadLevel(idx >= 0 ? idx : 0);
+    if (!localStorage.getItem('karakuri.seenIntro')) showIntro = true;
+    const onhash = () => { const i = fromHash(); if (i >= 0 && i !== game.levelIdx) game.loadLevel(i); };
+    window.addEventListener('hashchange', onhash);
+    return () => window.removeEventListener('hashchange', onhash);
   });
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   function go(i: number) { game.loadLevel(i); history.replaceState(null, '', '#' + LEVELS[i].id); }
+  function closeIntro() { showIntro = false; try { localStorage.setItem('karakuri.seenIntro', '1'); } catch {} }
 </script>
 
 <header class="ghead">
@@ -38,12 +46,15 @@
   </nav>
 
   <div class="right">
+    <button class="introbtn" onclick={() => (showIntro = true)}>{L('NANDとは', 'About NAND')}</button>
     <div class="lang">
       <button class:on={game.lang === 'ja'} onclick={() => game.setLang('ja')}>日本語</button>
       <button class:on={game.lang === 'en'} onclick={() => game.setLang('en')}>EN</button>
     </div>
   </div>
 </header>
+
+{#if showIntro}<IntroModal onclose={closeIntro} />{/if}
 
 <main class="gbody">
   <aside class="rail rail--left"><Palette /></aside>
@@ -70,6 +81,9 @@
   .lvl .nm { font-size: 0.78rem; }
   @media (max-width: 720px) { .lvl .nm { display: none; } }
 
+  .right { display: flex; align-items: center; gap: var(--sp-3); }
+  .introbtn { background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-full); color: var(--paper-2); padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 0.72rem; }
+  .introbtn:hover { border-color: var(--brass); color: var(--brass); }
   .lang { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-full); overflow: hidden; }
   .lang button { background: transparent; color: var(--muted); border: none; padding: 5px 11px; cursor: pointer; font-family: inherit; font-size: 0.72rem; }
   .lang button.on { background: var(--brass); color: #1a130a; }

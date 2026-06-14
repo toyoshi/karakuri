@@ -55,6 +55,11 @@ export class Game {
   solved = $state(false);
   lastVerify = $state<ReturnType<typeof verifyCombinational> | null>(null);
 
+  // persistent gate-level sim so feedback circuits actually hold state as you poke them
+  private gateSim: Simulator | null = null;
+  private gatePinNets: Map<string, number> = new Map();
+  liveGate = $state<{ vals: Map<string, Bit>; settled: boolean; ticks: number }>({ vals: new Map(), settled: true, ticks: 0 });
+
   get level(): Level { return LEVELS[this.levelIdx]; }
   get totalLevels(): number { return LEVELS.length; }
   get substrate(): 'gate' | 'switch' { return this.level.substrate ?? 'gate'; }
@@ -67,7 +72,7 @@ export class Game {
     return this.compiled.gateCount;
   });
 
-  /** live net values keyed by top-level pin key, recomputed on every edit */
+  /** live net values keyed by top-level pin key */
   live = $derived.by(() => {
     if (this.substrate === 'switch') {
       const net = buildSwitch(this.circuit, this.chipLib);
@@ -76,16 +81,25 @@ export class Game {
       for (const [k, n] of net.pinNets) vals.set(k, res.val[n] as Bit);
       return { vals, settled: res.settled, ticks: 0, shorted: res.shorted, floating: res.floating };
     }
+    return { ...this.liveGate, shorted: false, floating: false };
+  });
+
+  private mapPins(): Map<string, Bit> {
+    const vals = new Map<string, Bit>();
+    if (this.gateSim) for (const [k, n] of this.gatePinNets) vals.set(k, this.gateSim.values[n] as Bit);
+    return vals;
+  }
+  /** rebuild the persistent gate sim from the current structure (resets state) */
+  private syncLive() {
+    if (this.substrate === 'switch') return;
     const { flat, pinNets } = this.compiled;
     const sim = new Simulator(flat);
-    for (const name in this.inputs) {
-      try { sim.setInput(name, this.inputs[name]); } catch { /* pin gone */ }
-    }
+    sim.reset();
+    for (const name in this.inputs) { try { sim.setInput(name, this.inputs[name]); } catch {} }
     const res = sim.settle();
-    const vals = new Map<string, Bit>();
-    for (const [k, net] of pinNets) vals.set(k, sim.values[net] as Bit);
-    return { vals, settled: res.settled, ticks: res.ticks, shorted: false, floating: false };
-  });
+    this.gateSim = sim; this.gatePinNets = pinNets;
+    this.liveGate = { vals: this.mapPins(), settled: res.settled, ticks: res.ticks };
+  }
 
   pinValue(instId: string, pin: string): Bit | undefined {
     return this.live.vals.get(pinKey(instId, pin));
@@ -103,12 +117,13 @@ export class Game {
     this.solved = false;
     this.lastVerify = null;
     this.message = null;
+    this.syncLive();
   }
 
   setLang(l: Lang) { this.lang = l; localStorage.setItem(LS_LANG, l); }
 
   /* ---------- editing ---------- */
-  private touch() { this.circuit = { ...this.circuit }; } // poke reactivity
+  private touch() { this.circuit = { ...this.circuit }; this.syncLive(); } // poke reactivity + rebuild sim
 
   placeAt(gx: number, gy: number) {
     if (this.tool.type !== 'place') return;
@@ -131,6 +146,12 @@ export class Game {
 
   toggleInput(name: string) {
     this.inputs = { ...this.inputs, [name]: (this.inputs[name] ? 0 : 1) as Bit };
+    // gate: advance the persistent sim WITHOUT reset, so latches hold their state
+    if (this.substrate !== 'switch' && this.gateSim) {
+      try { this.gateSim.setInput(name, this.inputs[name]); } catch {}
+      const res = this.gateSim.settle();
+      this.liveGate = { vals: this.mapPins(), settled: res.settled, ticks: res.ticks };
+    }
   }
 
   /* ---------- wiring ---------- */
