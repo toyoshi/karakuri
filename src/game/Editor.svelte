@@ -100,6 +100,9 @@
   }
   function pinDown(e: PointerEvent, ref: PinRef) {
     e.stopPropagation();
+    // touching a pin means "wire", not "place" — drop the held part so the
+    // pointer-capture's trailing click can't also drop a component here.
+    if (game.tool.type === 'place') game.tool = { type: 'wire' };
     const p = toSvg(e);
     pending = { ref, x: p.x, y: p.y, dragging: false };
     try { svgEl.setPointerCapture(e.pointerId); } catch {}
