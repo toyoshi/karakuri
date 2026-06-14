@@ -28,9 +28,11 @@ export type Lang = 'ja' | 'en';
 let uidN = 0;
 const uid = () => 'n' + (uidN++).toString(36) + Date.now().toString(36).slice(-3);
 
+const CHIP_NAME_EN: Record<string, string> = { HADD: 'Half-add', FADD: 'Full-add', SR: 'SR latch', DLATCH: 'D latch' };
 function loadChips(): ChipLib {
   try {
     const arr = JSON.parse(localStorage.getItem(LS_CHIPS) || '[]') as ChipDef[];
+    for (const c of arr) if (!c.nameEn && CHIP_NAME_EN[c.id]) c.nameEn = CHIP_NAME_EN[c.id]; // backfill older saves
     return new Map(arr.map(c => [c.id, c]));
   } catch { return new Map(); }
 }
@@ -208,7 +210,8 @@ export class Game {
     this.recordBest(lv.id, this.cost);
     if (lv.produces) this.earnChip(lv);
     const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : (ja ? 'NAND' : 'NANDs');
-    const what = lv.produces ? (ja ? lv.produces.name + ' を作った' : 'built ' + lv.produces.name) : (ja ? '完成' : 'done');
+    const pname = lv.produces ? (ja ? lv.produces.name : (lv.produces.nameEn ?? lv.produces.name)) : '';
+    const what = lv.produces ? (ja ? pname + ' を作った' : 'built ' + pname) : (ja ? '完成' : 'done');
     this.message = { text: ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`, kind: 'ok' };
     return true;
   }
@@ -216,7 +219,7 @@ export class Game {
   private earnChip(lv: Level) {
     if (!lv.produces) return;
     const def: ChipDef = {
-      id: lv.produces.id, name: lv.produces.name, glyph: lv.produces.glyph,
+      id: lv.produces.id, name: lv.produces.name, nameEn: lv.produces.nameEn, glyph: lv.produces.glyph,
       inputs: lv.inputs.map(p => p.name), outputs: lv.outputs.map(p => p.name),
       circuit: JSON.parse(JSON.stringify(this.circuit)),
     };

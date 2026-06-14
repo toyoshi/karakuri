@@ -151,7 +151,8 @@
       case 'chip': {
         const def = game.chipLib.get(inst.chipId!);
         const desc = CHIP_DESC[inst.chipId!];
-        return { t: def?.name ?? inst.chipId ?? '?', d: desc ? (ja ? desc.ja : desc.en) : (ja ? '自分で作ったチップ' : 'a chip you built'), pins: def ? def.inputs.join(',') + ' → ' + def.outputs.join(',') : undefined };
+        const nm = def ? (ja ? def.name : (def.nameEn ?? def.name)) : (inst.chipId ?? '?');
+        return { t: nm, d: desc ? (ja ? desc.ja : desc.en) : (ja ? '自分で作ったチップ' : 'a chip you built'), pins: def ? def.inputs.join(',') + ' → ' + def.outputs.join(',') : undefined };
       }
     }
   }
@@ -237,7 +238,7 @@
           <text class="glyph" x={(x + 0.5) * CELL} y={(y + h * 0.5) * CELL + (inst.kind === 'chip' ? 0 : 5)}>
             {inst.kind === 'nand' ? 'NAND' : (game.chipLib.get(inst.chipId!)?.glyph ?? '?')}
           </text>
-          {#if inst.kind === 'chip'}<text class="cname" x={(x + 0.5) * CELL} y={(y + h * 0.5) * CELL + 20}>{game.chipLib.get(inst.chipId!)?.name}</text>{/if}
+          {#if inst.kind === 'chip'}<text class="cname" x={(x + 0.5) * CELL} y={(y + h * 0.5) * CELL + 20}>{game.lang === 'ja' ? game.chipLib.get(inst.chipId!)?.name : (game.chipLib.get(inst.chipId!)?.nameEn ?? game.chipLib.get(inst.chipId!)?.name)}</text>{/if}
         {/if}
 
         {#each anchors(inst, game.chipLib) as p}

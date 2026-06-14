@@ -1,6 +1,6 @@
 <script lang="ts">
   import { game } from './store.svelte';
-  import { t } from './i18n';
+  import { t, chipName } from './i18n';
   import { compile } from '../sim/circuit';
   import { Simulator, type Bit } from '../sim/netlist';
   import type { Instance, Wire } from '../sim/circuit';
@@ -23,7 +23,7 @@
     if (kind === 'nand') return 'NAND';
     if (kind === 'high') return t('power'); if (kind === 'low') return t('ground');
     if (kind === 'nmos') return 'NMOS'; if (kind === 'pmos') return 'PMOS';
-    return game.chipLib.get(chipId!)?.name ?? chipId!;
+    return chipName(game.chipLib.get(chipId!)) || chipId!;
   }
   const items = $derived(lv.palette.filter(it => it.kind !== 'chip' || game.chipLib.has(it.chipId!)));
 

@@ -41,3 +41,9 @@ export function t(key: keyof typeof D | string): string {
   if (!e) return key as string;
   return game.lang === 'ja' ? e.ja : e.en;
 }
+
+/** chip display name in the current language */
+export function chipName(def: { name: string; nameEn?: string } | undefined): string {
+  if (!def) return '';
+  return game.lang === 'ja' ? def.name : (def.nameEn ?? def.name);
+}

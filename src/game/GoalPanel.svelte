@@ -80,7 +80,7 @@
 
 <div class="goalpanel">
   <div>
-    <div class="chap">{lv.chapter} · {L(lv.concept, lv.conceptEn)}</div>
+    <div class="chap">{L(lv.chapter, lv.chapterEn)} · {L(lv.concept, lv.conceptEn)}</div>
     <h1>{L(lv.title, lv.titleEn)}</h1>
   </div>
 

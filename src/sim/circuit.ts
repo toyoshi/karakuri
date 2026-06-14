@@ -32,6 +32,7 @@ export interface Circuit {
 export interface ChipDef {
   id: string;
   name: string;
+  nameEn?: string;
   glyph?: string;
   inputs: string[];    // ordered interface input names
   outputs: string[];   // ordered interface output names

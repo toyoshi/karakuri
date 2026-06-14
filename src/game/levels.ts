@@ -20,6 +20,7 @@ export interface Level {
   chapter: string; chapterEn: string;
   glyph: string;          // shown in the level nav
   navName: string;
+  navNameEn?: string;
   title: string; titleEn: string;
   concept: string; conceptEn: string;
   goal: string; goalEn: string;
@@ -32,7 +33,7 @@ export interface Level {
   sequential?: boolean;
   spec?: (inMap: Record<string, Bit>) => Record<string, Bit>;
   steps?: { in: Record<string, Bit>; expected: Record<string, Bit> }[];
-  produces?: { id: string; name: string; glyph: string };
+  produces?: { id: string; name: string; nameEn?: string; glyph: string };
   par: number;            // reference cost (transistors for switch levels, NANDs for gate levels)
 }
 
@@ -112,7 +113,7 @@ export const LEVELS: Level[] = [
   /* ---------- Chapter 2 — arithmetic ---------- */
   {
     id: 'hadd', chapter: '算術', chapterEn: 'Arithmetic',
-    glyph: '½+', navName: '半加算',
+    glyph: '½+', navName: '半加算', navNameEn: 'Half',
     title: '半加算器', titleEn: 'Half adder',
     concept: '1ビットの足し算', conceptEn: '1-bit addition',
     goal: '1ビット同士を足す。和 S と、繰り上がり C を出す。1+1 は「桁が上がって 10」——2進数の足し算の最小単位。',
@@ -124,12 +125,12 @@ export const LEVELS: Level[] = [
     outputs: [{ name: 'S', y: 3 }, { name: 'C', y: 6 }],
     palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'chip', chipId: 'AND' }],
     spec: (m) => ({ S: ((m.A ? 1 : 0) ^ (m.B ? 1 : 0)) as Bit, C: (m.A && m.B ? 1 : 0) as Bit }),
-    produces: { id: 'HADD', name: '半加算', glyph: '½+' },
+    produces: { id: 'HADD', name: '半加算', nameEn: 'Half-add', glyph: '½+' },
     par: 6,
   },
   {
     id: 'fadd', chapter: '算術', chapterEn: 'Arithmetic',
-    glyph: 'Σ', navName: '全加算',
+    glyph: 'Σ', navName: '全加算', navNameEn: 'Full',
     title: '全加算器', titleEn: 'Full adder',
     concept: '繰り上がりも足す', conceptEn: 'add the carry too',
     goal: '下の桁からの繰り上がり Cin も含めて 3 入力を足す。和 S と繰り上がり Cout を出す。これを並べれば、何ビットでも足せる。',
@@ -141,14 +142,14 @@ export const LEVELS: Level[] = [
     outputs: [{ name: 'S', y: 3 }, { name: 'Cout', y: 5 }],
     palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'HADD' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'chip', chipId: 'AND' }],
     spec: (m) => { const s = (m.A ? 1 : 0) + (m.B ? 1 : 0) + (m.Cin ? 1 : 0); return { S: (s & 1) as Bit, Cout: (s >= 2 ? 1 : 0) as Bit }; },
-    produces: { id: 'FADD', name: '全加算', glyph: 'Σ' },
+    produces: { id: 'FADD', name: '全加算', nameEn: 'Full-add', glyph: 'Σ' },
     par: 14,
   },
 
   /* ---------- Chapter 3 — memory (feedback!) ---------- */
   {
     id: 'srlatch', chapter: '記憶', chapterEn: 'Memory',
-    glyph: '⊐', navName: 'SRラッチ', sequential: true,
+    glyph: '⊐', navName: 'SRラッチ', navNameEn: 'SR latch', sequential: true,
     title: 'SRラッチ — 1ビットの記憶', titleEn: 'SR latch — one bit of memory',
     concept: 'フィードバック＝記憶', conceptEn: 'feedback = memory',
     goal: '出力を入力に戻す（フィードバック）と、回路は値を「覚える」。NAND 2個を互いに繋ぎ、S=0でセット・R=0でリセット・両方1で保持。手順どおり Q が変わり、そして保たれるように。',
@@ -166,12 +167,12 @@ export const LEVELS: Level[] = [
       { in: { S: 1, R: 1 }, expected: { Q: 0 } },
       { in: { S: 0, R: 1 }, expected: { Q: 1 } },
     ],
-    produces: { id: 'SR', name: 'SRラッチ', glyph: '⊐' },
+    produces: { id: 'SR', name: 'SRラッチ', nameEn: 'SR latch', glyph: '⊐' },
     par: 2,
   },
   {
     id: 'dlatch', chapter: '記憶', chapterEn: 'Memory',
-    glyph: 'D', navName: 'Dラッチ', sequential: true,
+    glyph: 'D', navName: 'Dラッチ', navNameEn: 'D latch', sequential: true,
     title: 'Dラッチ — 書き込み制御', titleEn: 'D latch — gated write',
     concept: '「いつ覚えるか」を制御', conceptEn: 'control when to store',
     goal: 'E（書き込み許可）が1のとき、Q は D に従う。E が0なら、D が何であっても Q は前の値を保持する。「いつ記憶するか」を制御できる記憶。',
@@ -189,14 +190,14 @@ export const LEVELS: Level[] = [
       { in: { D: 1, E: 0 }, expected: { Q: 0 } },
       { in: { D: 1, E: 1 }, expected: { Q: 1 } },
     ],
-    produces: { id: 'DLATCH', name: 'Dラッチ', glyph: 'D' },
+    produces: { id: 'DLATCH', name: 'Dラッチ', nameEn: 'D latch', glyph: 'D' },
     par: 5,
   },
 
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
   {
     id: 't-not', chapter: 'おまけ：トランジスタ', chapterEn: 'Bonus: Transistors',
-    glyph: '◁', navName: 'Tr·反転', substrate: 'switch',
+    glyph: '◁', navName: 'Tr·反転', navNameEn: 'Tr·NOT', substrate: 'switch',
     title: 'スイッチで反転', titleEn: 'Invert, with switches',
     concept: 'CMOSインバータ', conceptEn: 'CMOS inverter',
     goal: '【おまけ】NANDの一段下へ。トランジスタは「導通するスイッチ」。PMOS・NMOS・電源・接地で、X を反転して Y に出そう。',
