@@ -292,6 +292,34 @@ export const LEVELS: Level[] = [
     par: 4,
   },
 
+  /* ---------- Chapter 7 — capstone: a tiny CPU (accumulator machine) ---------- */
+  {
+    id: 'cpu', chapter: 'CPU', chapterEn: 'CPU',
+    glyph: '▣', navName: 'CPU',
+    title: 'アキュムレータ — 小さな計算機', titleEn: 'Accumulator — a tiny computer',
+    concept: '記憶 × 計算 × クロック', conceptEn: 'memory × compute × clock',
+    goal: '集大成。ALU（計算）の出力を DFF（記憶）に戻し、その値をまた ALU の入力 a に。クロックごとに「acc ← (acc op in)」が実行される。op を変えれば違う計算＝プログラム可能な計算機だ。手順どおり acc が動くように組もう。',
+    goalEn: 'The capstone. Feed the ALU output into a DFF, and that value back into the ALU\'s a input. Each clock runs "acc ← (acc op in)". Change op and it computes differently — a programmable machine. Make acc follow the sequence.',
+    idea: 'これがコンピュータの心臓だ。記憶(DFF)・計算(ALU)・時間(クロック)が一つの輪になり、命令(op)の列でデータを変えていく——アキュムレータ型CPU。君は NAND ひとつから、ここまで来た。多ビットに束ね、命令をメモリから読めば、それはもう本物のCPUだ。',
+    ideaEn: "This is the heart of a computer: memory (DFF), compute (ALU), and time (clock) in one loop, transforming data under a stream of instructions (op) — an accumulator CPU. From a single NAND, you built this. Widen it to many bits and fetch ops from memory, and it is a real CPU.",
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'in', y: 1 }, { name: 'op0', y: 3 }, { name: 'op1', y: 5 }, { name: 'clk', y: 7 }],
+    outputs: [{ name: 'acc', y: 4 }],
+    palette: [{ kind: 'dff' }, { kind: 'chip', chipId: 'ALU' }, { kind: 'chip', chipId: 'MUX' }, { kind: 'nand' }],
+    steps: [
+      { in: { in: 1, op0: 1, op1: 0, clk: 0 }, expected: { acc: 0 } },
+      { in: { in: 1, op0: 1, op1: 0, clk: 1 }, expected: { acc: 1 } }, // acc = OR(0,1) = 1
+      { in: { in: 1, op0: 0, op1: 1, clk: 0 }, expected: { acc: 1 } },
+      { in: { in: 1, op0: 0, op1: 1, clk: 1 }, expected: { acc: 0 } }, // acc = XOR(1,1) = 0
+      { in: { in: 0, op0: 1, op1: 1, clk: 0 }, expected: { acc: 0 } },
+      { in: { in: 0, op0: 1, op1: 1, clk: 1 }, expected: { acc: 1 } }, // acc = NAND(0,0) = 1
+      { in: { in: 1, op0: 0, op1: 0, clk: 0 }, expected: { acc: 1 } },
+      { in: { in: 1, op0: 0, op1: 0, clk: 1 }, expected: { acc: 1 } }, // acc = AND(1,1) = 1
+    ],
+    produces: { id: 'ACC', name: 'アキュムレータ', nameEn: 'Accumulator', glyph: '▣' },
+    par: 34,
+  },
+
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
   {
     id: 't-not', chapter: 'おまけ：トランジスタ', chapterEn: 'Bonus: Transistors',
