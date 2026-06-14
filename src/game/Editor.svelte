@@ -111,6 +111,9 @@
       {#each game.circuit.wires as w}
         <path class="wire" class:lit={wireLit(w)} d={wirePath(w)} />
         {#if wireLit(w)}<path class="wire-flow" d={wirePath(w)} />{/if}
+        <path class="wire-hit" d={wirePath(w)}
+              onclick={(e) => { e.stopPropagation(); if (game.tool.type === 'delete') game.removeWire(w); }}
+              role="button" tabindex="-1" aria-label="配線" />
       {/each}
     </g>
 
@@ -192,6 +195,9 @@
   .wire-flow { fill: none; stroke: var(--brass-bright); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 2 16; opacity: 0.9; animation: flow 0.6s linear infinite; }
   @keyframes flow { to { stroke-dashoffset: -18; } }
   .wire-ghost { stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 5 5; opacity: 0.8; }
+  .wire-hit { stroke: transparent; stroke-width: 16; fill: none; pointer-events: none; }
+  svg.deleting .wire-hit { pointer-events: stroke; cursor: pointer; }
+  svg.deleting .wire-hit:hover { stroke: rgba(240,106,106,0.25); }
 
   .ghost rect { fill: rgba(216,166,87,0.12); stroke: var(--brass); stroke-width: 1.5; stroke-dasharray: 4 4; }
   .ghost text { fill: var(--brass); font-family: var(--font-mono); font-size: 12px; text-anchor: middle; pointer-events: none; }
