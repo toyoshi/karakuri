@@ -112,8 +112,8 @@
         </tbody>
       </table>
       <div class="legend">
-        <span><i class="lit"></i>{L('明るく流れる線 = 1', 'bright flowing wire = 1')}</span>
-        <span><i class="dim"></i>{L('暗い線 = 0', 'dim wire = 0')}</span>
+        <span><i class="lit"></i>{L('明るく流れる＝値が 1（オン）', 'bright, flowing = value 1 (on)')}</span>
+        <span><i class="dim"></i>{L('暗い＝値が 0（オフ）', 'dim = value 0 (off)')}</span>
       </div>
     </div>
   {/if}
