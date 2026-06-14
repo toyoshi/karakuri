@@ -1,0 +1,277 @@
+/* ============================================================
+   KARAKURI — 読み解き (The Reader) layout
+   An editorial reading hall: constrained column, sticky ToC,
+   verdigris callouts, dark code plates.
+   ============================================================ */
+
+/* progress bar pinned under the sticky header */
+.reading-progress {
+  position: fixed;
+  top: 64px; left: 0;
+  height: 2px; width: 0%;
+  z-index: 49;
+  background: linear-gradient(90deg, var(--verdigris), var(--brass));
+  box-shadow: 0 0 8px var(--brass-glow);
+  transition: width 90ms linear;
+  pointer-events: none;
+}
+
+/* ---------- HERO ---------- */
+.read-hero {
+  padding-block: clamp(3rem, 8vw, 6.5rem) clamp(2rem, 5vw, 4rem);
+}
+.read-hero__inner { max-width: var(--maxw-text); }
+.read-hero h1 {
+  font-size: var(--step-4);
+  margin-top: var(--sp-4);
+  line-height: 1.04;
+}
+.read-hero h1 em { font-style: italic; color: var(--brass-bright); }
+.read-hero__lede {
+  margin-top: var(--sp-5);
+  font-size: var(--step-1);
+  color: var(--paper);
+  line-height: 1.6;
+  max-width: 40ch;
+}
+.read-hero__sub {
+  margin-top: var(--sp-5);
+  color: var(--muted);
+  font-size: var(--step-0);
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-4);
+  max-width: 46ch;
+}
+
+/* ---------- TWO-COLUMN: ToC + article ---------- */
+.read-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
+}
+@media (min-width: 1040px) {
+  .read-layout {
+    grid-template-columns: 240px minmax(0, var(--maxw-text)) 1fr;
+    gap: clamp(2rem, 4vw, 4rem);
+    justify-content: center;
+  }
+}
+
+/* ---------- Table of contents ---------- */
+.toc {
+  display: none;
+}
+@media (min-width: 1040px) {
+  .toc {
+    display: block;
+    position: sticky;
+    top: 96px;
+    align-self: start;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding-right: var(--sp-3);
+  }
+}
+.toc__label {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: var(--sp-3);
+}
+.toc__list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.15em; }
+.toc__list a {
+  display: flex;
+  gap: 0.6em;
+  padding: 0.4em 0.7em;
+  border-radius: var(--r-1);
+  font-size: var(--step--1);
+  color: var(--muted);
+  line-height: 1.35;
+  border-left: 2px solid transparent;
+  transition: color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+.toc__list a:hover { color: var(--paper-2); background: var(--glass); }
+.toc__list a .toc__no { font-family: var(--font-mono); color: var(--faint); flex: none; font-size: 0.78em; padding-top: 0.15em; }
+.toc__list a.is-current {
+  color: var(--paper);
+  border-left-color: var(--brass);
+  background: color-mix(in srgb, var(--brass) 8%, transparent);
+}
+.toc__list a.is-current .toc__no { color: var(--brass); }
+
+/* ---------- Article ---------- */
+.read-article { min-width: 0; }
+.read-article > * { max-width: var(--maxw-text); }
+
+.concept {
+  padding-block: clamp(2.5rem, 6vw, 4.5rem);
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 90px;
+}
+.concept:first-child { border-top: none; }
+
+.concept__kicker { /* uses .kicker base */ margin-bottom: var(--sp-3); }
+.concept h2 {
+  font-size: var(--step-3);
+  margin-bottom: var(--sp-2);
+}
+.concept__jp {
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  color: var(--verdigris);
+  display: block;
+  margin-bottom: var(--sp-5);
+}
+
+.concept p { margin-top: var(--sp-4); color: var(--paper-2); }
+.concept p strong { color: var(--paper); font-weight: 600; }
+.concept p code, .read-hero code, .callout code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--ink-700);
+  border: 1px solid var(--line);
+  border-radius: var(--r-1);
+  padding: 0.08em 0.4em;
+  color: var(--brass-bright);
+}
+
+/* role tags before metaphor / cs paragraphs */
+.role {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.2em 0.7em;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line-strong);
+  margin-top: var(--sp-5);
+  margin-bottom: calc(var(--sp-2) * -1);
+}
+.role--metaphor { color: var(--brass); border-color: var(--brass-deep); }
+.role--cs { color: var(--signal); border-color: var(--signal-d); }
+.role + p { margin-top: var(--sp-3); }
+
+/* ---------- 考え方 callout (echoes .lvl-idea) ---------- */
+.callout {
+  border-left: 2px solid var(--verdigris);
+  padding: var(--sp-4) var(--sp-5);
+  margin-top: var(--sp-5);
+  color: var(--paper-2);
+  font-size: var(--step-0);
+  line-height: 1.65;
+  background: linear-gradient(90deg, rgba(87,176,154,0.09), transparent 80%);
+  border-radius: 0 var(--r-2) var(--r-2) 0;
+}
+.callout b {
+  color: var(--verdigris);
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 0.4em;
+}
+
+/* ---------- Code plate ---------- */
+.code-plate {
+  margin-top: var(--sp-5);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-3);
+  background: var(--ink-850);
+  box-shadow: var(--sh-2);
+  overflow: hidden;
+}
+.code-plate__bar {
+  display: flex; align-items: center; gap: 0.5em;
+  padding: 0.55em 0.9em;
+  background: var(--ink-800);
+  border-bottom: 1px solid var(--line);
+}
+.code-plate__dots { display: flex; gap: 0.4em; }
+.code-plate__dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-600); display: block; }
+.code-plate__name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-left: 0.4em;
+}
+.code-plate pre {
+  margin: 0;
+  padding: var(--sp-5);
+  overflow-x: auto;
+  font-size: var(--step--1);
+  line-height: 1.7;
+  color: var(--paper-2);
+  tab-size: 2;
+}
+.code-plate pre::-webkit-scrollbar { height: 8px; }
+.code-plate pre::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 8px; }
+
+/* light, tasteful syntax coloring */
+.tok-key { color: var(--brass-bright); }
+.tok-fn  { color: var(--verdigris); }
+.tok-num { color: var(--signal); }
+.tok-str { color: var(--copper); }
+.tok-com { color: var(--faint); font-style: italic; }
+.tok-pun { color: var(--muted); }
+
+/* ---------- Try links ---------- */
+.try-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+}
+.try-link {
+  display: inline-flex; align-items: center; gap: 0.5em;
+  font-family: var(--font-sans);
+  font-size: var(--step--1);
+  font-weight: 500;
+  padding: 0.5em 1.05em;
+  border-radius: var(--r-full);
+  border: 1px solid var(--line-strong);
+  color: var(--paper-2);
+  background: var(--glass);
+  transition: border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease), background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+.try-link:hover { transform: translateY(-2px); color: var(--paper); }
+.try-link--workshop:hover { border-color: var(--brass); color: var(--brass-bright); }
+.try-link--play:hover { border-color: var(--verdigris); color: var(--verdigris); }
+.try-link svg { flex: none; }
+
+/* ---------- bonus / bridge section flavor ---------- */
+.concept--bonus {
+  background: linear-gradient(180deg, rgba(216,166,87,0.05), transparent 40%);
+}
+.bridge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+}
+.bridge-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+  padding: var(--sp-4);
+  background: var(--ink-800);
+}
+.bridge-card b { color: var(--paper); font-family: var(--font-display); font-size: var(--step-1); display: block; margin-bottom: 0.2em; }
+.bridge-card span { color: var(--muted); font-size: var(--step--1); line-height: 1.55; display: block; }
+
+/* ---------- Closer ---------- */
+.read-closer {
+  max-width: var(--maxw-text);
+  margin-inline: auto;
+  text-align: center;
+  padding-block: clamp(3rem, 7vw, 5rem) clamp(1rem, 3vw, 2rem);
+  border-top: 1px solid var(--line);
+}
+.read-closer h2 { font-size: var(--step-2); margin-block: var(--sp-3) var(--sp-2); }
+.read-closer p { color: var(--paper-2); margin-bottom: var(--sp-5); }
+.read-closer .hero__cta { display: flex; gap: var(--sp-3); justify-content: center; flex-wrap: wrap; }
