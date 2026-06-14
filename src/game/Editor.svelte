@@ -6,14 +6,21 @@
   import type { Instance, Wire, PinRef } from '../sim/circuit';
 
   let svgEl: SVGSVGElement;
+  let wrapEl: HTMLDivElement;
   let mouse = $state({ x: 0, y: 0, in: false });
+  let cursor = $state({ cx: 0, cy: 0 });
+  let hover = $state<string | null>(null);
   let drag = $state<null | { id: string; offx: number; offy: number; moved: boolean }>(null);
+  let pending = $state<null | { ref: PinRef; x: number; y: number; dragging: boolean }>(null);
 
   const lv = $derived(game.level);
   const px = $derived(gridPx(lv));
   const insts = $derived(game.circuit.instances);
   const byId = $derived(new Map(insts.map(i => [i.id, i])));
   const movable = (k: string) => k === 'nand' || k === 'chip' || k === 'nmos' || k === 'pmos' || k === 'high' || k === 'low';
+  const pkey = (r: PinRef) => r.inst + ':' + r.pin;
+  const wkey = (w: Wire) => pkey(w.a) + '|' + pkey(w.b);
+  const connected = $derived(new Set(game.circuit.wires.flatMap(w => [pkey(w.a), pkey(w.b)])));
 
   function toSvg(e: PointerEvent | MouseEvent) {
     const p = svgEl.createSVGPoint();
@@ -25,9 +32,27 @@
     gx >= 0 && gy >= 0 && gx < lv.cols && gy < lv.rows &&
     !insts.some(i => i.id !== exceptId && i.x === gx && i.y === gy);
 
+  /** nearest pin to a point, within snap radius */
+  function nearestPin(x: number, y: number): PinRef | null {
+    let best: PinRef | null = null, bd = (CELL * 0.5) ** 2;
+    for (const inst of insts) for (const a of anchors(inst, game.chipLib)) {
+      const p = pinXY(inst, game.chipLib, a.name);
+      const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (d < bd) { bd = d; best = { inst: inst.id, pin: a.name }; }
+    }
+    return best;
+  }
+
   function onMove(e: PointerEvent) {
     const p = toSvg(e);
     mouse = { x: p.x, y: p.y, in: p.x >= 0 && p.y >= 0 && p.x < px.w && p.y < px.h };
+    if (wrapEl) { const r = wrapEl.getBoundingClientRect(); cursor = { cx: e.clientX - r.left, cy: e.clientY - r.top }; }
+    if (pending) {
+      if (!pending.dragging && (p.x - pending.x) ** 2 + (p.y - pending.y) ** 2 > 64) {
+        pending.dragging = true; game.wiring = pending.ref;
+      }
+      return;
+    }
     if (drag) {
       const inst = byId.get(drag.id); if (!inst) return;
       const gx = Math.round((p.x - drag.offx) / CELL), gy = Math.round((p.y - drag.offy) / CELL);
@@ -35,26 +60,48 @@
     }
   }
   function onUp(e: PointerEvent) {
+    try { svgEl.releasePointerCapture(e.pointerId); } catch {}
+    if (pending) {
+      const { ref, dragging } = pending; pending = null;
+      if (dragging) {
+        const tgt = nearestPin(mouse.x, mouse.y);
+        if (tgt && pkey(tgt) !== pkey(ref)) game.addWire(ref, tgt);
+        game.clearWiring();
+      } else {
+        // a click: start a wire, or finish one in progress
+        game.pinClicked(ref, 'in');
+      }
+      return;
+    }
     if (drag) {
       const d = drag; drag = null;
-      try { svgEl.releasePointerCapture(e.pointerId); } catch {}
       if (!d.moved) { const inst = byId.get(d.id); if (inst && game.tool.type === 'delete') game.deleteInstance(inst.id); }
     }
   }
   function onBgClick(e: MouseEvent) {
-    if (drag) return;
+    if (drag || pending) return;
     if (game.tool.type === 'place') {
       const p = toSvg(e);
       game.placeAt(Math.floor(p.x / CELL), Math.floor(p.y / CELL));
-    } else game.clearWiring();
+    }
+    // NOTE: do NOT clear an in-progress wire on a stray background click —
+    // a near-miss should not destroy your work. Cancel with Esc or by
+    // clicking the start pin again.
   }
+  function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { game.clearWiring(); pending = null; } }
 
   function bodyDown(e: PointerEvent, inst: Instance) {
     if (!movable(inst.kind)) return;
-    if (game.tool.type === 'place') return; // let bg handle placing
+    if (game.tool.type === 'place') return;
     e.stopPropagation();
     const p = toSvg(e);
     drag = { id: inst.id, offx: p.x - (inst.x ?? 0) * CELL, offy: p.y - (inst.y ?? 0) * CELL, moved: false };
+    try { svgEl.setPointerCapture(e.pointerId); } catch {}
+  }
+  function pinDown(e: PointerEvent, ref: PinRef) {
+    e.stopPropagation();
+    const p = toSvg(e);
+    pending = { ref, x: p.x, y: p.y, dragging: false };
     try { svgEl.setPointerCapture(e.pointerId); } catch {}
   }
 
@@ -65,7 +112,6 @@
     const i = byId.get(instId); if (!i) return 'io';
     return pinsOf(i, game.chipLib).find(p => p.name === pin)?.dir ?? 'io';
   }
-  // orient so the path runs driver(out) → sink(in): fixes "backward" flow
   function orient(w: Wire): [PinRef, PinRef] {
     const da = pinDir(w.a.inst, w.a.pin), db = pinDir(w.b.inst, w.b.pin);
     if (da === 'out') return [w.a, w.b];
@@ -79,11 +125,32 @@
     const mx = (a.x + b.x) / 2;
     return `M ${a.x} ${a.y} H ${mx} V ${b.y} H ${b.x}`;
   }
-  function wireLit(w: Wire): boolean {
-    return (game.pinValue(w.a.inst, w.a.pin) ?? game.pinValue(w.b.inst, w.b.pin)) === 1;
-  }
-  function onPin(e: MouseEvent, ref: PinRef, dir: 'in' | 'out' | 'io') {
-    e.stopPropagation(); game.pinClicked(ref, dir === 'out' ? 'out' : 'in');
+  const wireLit = (w: Wire) => (game.pinValue(w.a.inst, w.a.pin) ?? game.pinValue(w.b.inst, w.b.pin)) === 1;
+
+  const CHIP_DESC: Record<string, { ja: string; en: string }> = {
+    NOT: { ja: '入力を反転する', en: 'inverts its input' },
+    AND: { ja: '両方が1のとき1', en: '1 when both are 1' },
+    OR: { ja: 'どちらかが1なら1', en: '1 if either is 1' },
+    XOR: { ja: '入力が違うとき1', en: '1 when inputs differ' },
+    HADD: { ja: '1ビット加算：和Sと繰り上がりC', en: '1-bit add: sum S, carry C' },
+    FADD: { ja: '繰り上がり込みの加算', en: 'add with carry-in' },
+  };
+  function describe(inst: Instance): { t: string; d: string; pins?: string } {
+    const ja = game.lang === 'ja';
+    switch (inst.kind) {
+      case 'nand': return { t: 'NAND', d: ja ? '両方が1のときだけ0、それ以外は1' : '0 only when both are 1', pins: 'A,B → Y' };
+      case 'input': return { t: (ja ? '入力 ' : 'Input ') + inst.name, d: ja ? 'クリックで 0/1 を切り替え' : 'click to toggle 0/1' };
+      case 'output': return { t: (ja ? '出力 ' : 'Output ') + inst.name, d: ja ? 'ここに正しい値を導く' : 'drive the correct value here' };
+      case 'high': return { t: ja ? '電源' : 'Power', d: ja ? '常に 1' : 'always 1' };
+      case 'low': return { t: ja ? '接地' : 'Ground', d: ja ? '常に 0' : 'always 0' };
+      case 'nmos': return { t: 'NMOS', d: ja ? 'ゲートが1のとき導通' : 'conducts when gate is 1' };
+      case 'pmos': return { t: 'PMOS', d: ja ? 'ゲートが0のとき導通' : 'conducts when gate is 0' };
+      case 'chip': {
+        const def = game.chipLib.get(inst.chipId!);
+        const desc = CHIP_DESC[inst.chipId!];
+        return { t: def?.name ?? inst.chipId ?? '?', d: desc ? (ja ? desc.ja : desc.en) : (ja ? '自分で作ったチップ' : 'a chip you built'), pins: def ? def.inputs.join(',') + ' → ' + def.outputs.join(',') : undefined };
+      }
+    }
   }
 
   const ghostCell = $derived(mouse.in ? { x: Math.floor(mouse.x / CELL), y: Math.floor(mouse.y / CELL) } : null);
@@ -96,7 +163,9 @@
   }
 </script>
 
-<div class="editor-wrap">
+<svelte:window onkeydown={onKey} />
+
+<div class="editor-wrap" bind:this={wrapEl}>
   <svg bind:this={svgEl} viewBox="0 0 {px.w} {px.h}" preserveAspectRatio="xMidYMid meet"
        onpointermove={onMove} onpointerup={onUp} onclick={onBgClick}
        class:placing={game.tool.type === 'place'} class:deleting={game.tool.type === 'delete'}
@@ -106,12 +175,14 @@
       {#each Array(lv.rows + 1) as _, r}<line x1="0" y1={r * CELL} x2={px.w} y2={r * CELL} />{/each}
     </g>
 
-    <!-- wires -->
+    <!-- wires (keyed so the flow animation stays continuous across edits) -->
     <g class="wires">
-      {#each game.circuit.wires as w}
-        <path class="wire" class:lit={wireLit(w)} d={wirePath(w)} />
-        {#if wireLit(w)}<path class="wire-flow" d={wirePath(w)} />{/if}
-        <path class="wire-hit" d={wirePath(w)}
+      {#each game.circuit.wires as w (wkey(w))}
+        {@const d = wirePath(w)}
+        {@const lit = wireLit(w)}
+        <path class="wire" class:lit d={d} />
+        <path class="wire-flow" class:lit d={d} />
+        <path class="wire-hit" d={d}
               onclick={(e) => { e.stopPropagation(); if (game.tool.type === 'delete') game.removeWire(w); }}
               role="button" tabindex="-1" aria-label="配線" />
       {/each}
@@ -122,7 +193,6 @@
       <line class="wire-ghost" x1={wp.x} y1={wp.y} x2={mouse.x} y2={mouse.y} />
     {/if}
 
-    <!-- placement ghost -->
     {#if game.tool.type === 'place' && ghostCell}
       <g class="ghost" class:blocked={!cellFree(ghostCell.x, ghostCell.y)}>
         <rect x={ghostCell.x * CELL + 9} y={ghostCell.y * CELL + 9} width={CELL - 18} height={CELL - 18} rx="10" />
@@ -130,12 +200,13 @@
       </g>
     {/if}
 
-    <!-- components -->
     {#each insts as inst (inst.id)}
       {@const h = cellH(inst, game.chipLib)}
       {@const x = inst.x ?? 0}{@const y = inst.y ?? 0}{@const pad = 9}
       <g class="comp k-{inst.kind}" class:locked={inst.locked} class:dragging={drag?.id === inst.id}
          onpointerdown={(e) => bodyDown(e, inst)}
+         onpointerenter={() => (hover = inst.id)}
+         onpointerleave={() => { if (hover === inst.id) hover = null; }}
          oncontextmenu={(e) => { e.preventDefault(); e.stopPropagation(); game.deleteInstance(inst.id); }}
          role="button" tabindex="-1">
 
@@ -169,21 +240,40 @@
         {#each anchors(inst, game.chipLib) as p}
           {@const pos = pinXY(inst, game.chipLib, p.name)}
           {@const v = game.pinValue(inst.id, p.name)}
-          <g class="pin p-{p.dir}" class:on={v === 1}
+          {@const unwired = p.dir !== 'out' && !connected.has(pkey({ inst: inst.id, pin: p.name }))}
+          <g class="pin p-{p.dir}" class:on={v === 1} class:unwired
              class:active={game.wiring && game.wiring.inst === inst.id && game.wiring.pin === p.name}
-             onclick={(e) => onPin(e, { inst: inst.id, pin: p.name }, p.dir)}
-             onpointerdown={(e) => e.stopPropagation()} role="button" tabindex="-1">
-            <circle class="hit" cx={pos.x} cy={pos.y} r="12" />
+             onpointerdown={(e) => pinDown(e, { inst: inst.id, pin: p.name })}
+             onclick={(e) => e.stopPropagation()} role="button" tabindex="-1">
+            <circle class="hit" cx={pos.x} cy={pos.y} r="14" />
             <circle class="dot" cx={pos.x} cy={pos.y} r="5" />
           </g>
         {/each}
       </g>
     {/each}
   </svg>
+
+  {#if hover && !drag && !pending}
+    {@const inst = byId.get(hover)}
+    {#if inst}
+      {@const info = describe(inst)}
+      <div class="tooltip" style="left:{cursor.cx + 16}px; top:{cursor.cy + 16}px">
+        <b>{info.t}</b>
+        {#if info.d}<span>{info.d}</span>{/if}
+        {#if info.pins}<code>{info.pins}</code>{/if}
+      </div>
+    {/if}
+  {/if}
 </div>
 
 <style>
-  .editor-wrap { width: 100%; height: 100%; display: grid; place-items: center; padding: var(--sp-4); overflow: auto; }
+  .editor-wrap { position: relative; width: 100%; height: 100%; display: grid; place-items: center; padding: var(--sp-4); overflow: auto; }
+  .tooltip { position: absolute; z-index: 5; pointer-events: none; max-width: 220px;
+    background: var(--ink-700); border: 1px solid var(--line-strong); border-radius: var(--r-2);
+    padding: 8px 11px; box-shadow: var(--sh-2); display: flex; flex-direction: column; gap: 3px; }
+  .tooltip b { color: var(--paper); font-size: var(--step--1); }
+  .tooltip span { color: var(--paper-2); font-size: 0.74rem; line-height: 1.4; }
+  .tooltip code { color: var(--brass); font-family: var(--font-mono); font-size: 0.7rem; }
   svg { width: 100%; height: 100%; touch-action: none; }
   svg.placing { cursor: copy; }
   svg.deleting { cursor: not-allowed; }
@@ -192,9 +282,11 @@
 
   .wire { fill: none; stroke: var(--ink-500); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
   .wire.lit { stroke: var(--signal); filter: drop-shadow(0 0 4px var(--signal-d)); }
-  .wire-flow { fill: none; stroke: var(--brass-bright); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 2 16; opacity: 0.9; animation: flow 0.6s linear infinite; }
+  /* persistent overlay: only visible/animated when lit, so the flow never gets recreated */
+  .wire-flow { fill: none; stroke: var(--brass-bright); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 2 16; opacity: 0; }
+  .wire-flow.lit { opacity: 0.9; animation: flow 0.6s linear infinite; }
   @keyframes flow { to { stroke-dashoffset: -18; } }
-  .wire-ghost { stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 5 5; opacity: 0.8; }
+  .wire-ghost { stroke: var(--brass); stroke-width: 2.5; stroke-dasharray: 5 5; opacity: 0.85; }
   .wire-hit { stroke: transparent; stroke-width: 16; fill: none; pointer-events: none; }
   svg.deleting .wire-hit { pointer-events: stroke; cursor: pointer; }
   svg.deleting .wire-hit:hover { stroke: rgba(240,106,106,0.25); }
@@ -217,7 +309,6 @@
   .t-nmos { fill: #11212c; stroke: var(--signal-d); }
   .t-pmos { fill: #241a12; stroke: var(--copper); }
   .trlbl { font-size: 15px; font-weight: 700; }
-  .t-nmos + .trlbl, .k-nmos .trlbl { fill: var(--signal); }
   .k-nmos .trlbl { fill: var(--signal); } .k-pmos .trlbl { fill: var(--copper); }
 
   .rail { stroke-width: 1.6; }
@@ -240,4 +331,6 @@
   .pin.on .dot { fill: var(--signal); }
   .pin:hover .dot { fill: var(--brass); }
   .pin.active .dot { fill: var(--brass-bright); stroke: var(--brass); }
+  /* unconnected inputs are obvious: dashed red ring (so a floating gate isn't mistaken for "signal from nowhere") */
+  .pin.unwired .dot { fill: var(--ink-700); stroke: var(--err); stroke-dasharray: 2 2; }
 </style>

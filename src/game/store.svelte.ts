@@ -190,7 +190,7 @@ export class Game {
   verify(): boolean {
     const lv = this.level;
     const ja = this.lang === 'ja';
-    const rows = truthTable(lv.inputs.map(p => p.name), lv.spec!);
+    const rows = lv.spec ? truthTable(lv.inputs.map(p => p.name), lv.spec) : [];
     let res;
     if (this.substrate === 'switch') {
       res = verifySwitch(buildSwitch(this.circuit, this.chipLib), rows);
