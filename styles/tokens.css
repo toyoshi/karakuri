@@ -1,0 +1,89 @@
+/* ============================================================
+   KARAKURI — Design System Tokens
+   "計算を、からくりとして学ぶ。"
+   A workshop-at-night aesthetic: ink, brass, patina, signal-blue.
+   ============================================================ */
+
+:root {
+  /* --- Ink (surfaces) --- */
+  --ink-900: #0b0e13;   /* page background */
+  --ink-850: #0f131a;
+  --ink-800: #131822;   /* raised surface */
+  --ink-700: #1a212d;   /* cards */
+  --ink-600: #232c3b;   /* hover */
+  --ink-500: #303a4c;
+
+  /* --- Lines & glass --- */
+  --line:        rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --glass:       rgba(255, 255, 255, 0.03);
+
+  /* --- Paper (text) --- */
+  --paper:   #f3efe6;   /* primary text, warm parchment */
+  --paper-2: #cdd3de;   /* secondary */
+  --muted:   #8b96a8;   /* tertiary / captions */
+  --faint:   #5a6577;
+
+  /* --- Brass (primary accent) --- */
+  --brass:        #d8a657;
+  --brass-bright: #f2c879;
+  --brass-deep:   #a8772f;
+  --brass-glow:   rgba(216, 166, 87, 0.35);
+
+  /* --- Patina (secondary accent) --- */
+  --verdigris:   #57b09a;
+  --verdigris-d: #2f7d6b;
+
+  /* --- Copper / signal --- */
+  --copper:  #d4805a;
+  --signal:  #6cc6ff;   /* data items in motion */
+  --signal-d:#2f7fb8;
+
+  /* --- Semantic --- */
+  --ok:    #6ed29a;
+  --warn:  #e8b25a;
+  --err:   #f06a6a;
+
+  /* --- Item palette (data tokens in the game) --- */
+  --token-num:  #6cc6ff;
+  --token-even: #57b09a;
+  --token-odd:  #d4805a;
+  --token-gold: #f2c879;
+
+  /* --- Typography --- */
+  --font-display: "Fraunces", "Zen Old Mincho", Georgia, serif;
+  --font-sans: "Inter", "Zen Kaku Gothic New", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+
+  /* --- Scale (fluid) --- */
+  --step--1: clamp(0.78rem, 0.74rem + 0.2vw, 0.88rem);
+  --step-0:  clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem);
+  --step-1:  clamp(1.15rem, 1.05rem + 0.5vw, 1.4rem);
+  --step-2:  clamp(1.5rem, 1.3rem + 1vw, 2.1rem);
+  --step-3:  clamp(2rem, 1.6rem + 2vw, 3.2rem);
+  --step-4:  clamp(2.6rem, 1.9rem + 3.6vw, 5rem);
+  --step-5:  clamp(3.2rem, 2rem + 6vw, 7rem);
+
+  /* --- Space --- */
+  --sp-1: 0.25rem; --sp-2: 0.5rem; --sp-3: 0.75rem; --sp-4: 1rem;
+  --sp-5: 1.5rem;  --sp-6: 2rem;   --sp-7: 3rem;     --sp-8: 4.5rem;
+  --sp-9: 7rem;
+
+  /* --- Radius --- */
+  --r-1: 6px; --r-2: 10px; --r-3: 16px; --r-4: 24px; --r-full: 999px;
+
+  /* --- Shadow --- */
+  --sh-1: 0 1px 2px rgba(0,0,0,0.4);
+  --sh-2: 0 8px 24px -8px rgba(0,0,0,0.6);
+  --sh-3: 0 24px 60px -16px rgba(0,0,0,0.7);
+  --sh-glow: 0 0 0 1px var(--brass-glow), 0 8px 32px -8px var(--brass-glow);
+
+  /* --- Motion --- */
+  --ease: cubic-bezier(0.4, 0, 0.1, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-fast: 140ms; --t-med: 280ms; --t-slow: 600ms;
+
+  /* --- Layout --- */
+  --maxw: 1180px;
+  --maxw-text: 720px;
+}
