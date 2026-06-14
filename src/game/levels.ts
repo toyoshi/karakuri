@@ -239,6 +239,29 @@ export const LEVELS: Level[] = [
     par: 9,
   },
 
+  /* ---------- Chapter 5 — ALU ---------- */
+  {
+    id: 'alu', chapter: '演算装置', chapterEn: 'ALU',
+    glyph: '⊞', navName: 'ALU',
+    title: 'ALU — 演算をえらぶ', titleEn: 'ALU — choose the operation',
+    concept: '制御ビットで演算を選ぶ', conceptEn: 'control bits pick the operation',
+    goal: 'CPUの計算核。2本の制御線 (op1,op0) で、a と b に施す演算を切り替える。00=AND, 01=OR, 10=XOR(=和), 11=NAND を、結果 y に出そう。',
+    goalEn: 'A CPU\'s compute core. Two control lines (op1,op0) pick the operation on a and b: 00=AND, 01=OR, 10=XOR(sum), 11=NAND → y.',
+    idea: '演算装置の正体は「いくつかの結果を全部計算しておき、制御ビットでセレクタが1つ選ぶ」。XOR は足し算の和の桁そのもの。これに記憶(レジスタ)とプログラムカウンタを足せば、CPUになる。',
+    ideaEn: 'An ALU computes several results, then a selector picks one by the control bits. XOR is the sum bit of addition. Add registers and a program counter, and this becomes a CPU.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'a', y: 2 }, { name: 'b', y: 3 }, { name: 'op0', y: 5 }, { name: 'op1', y: 6 }],
+    outputs: [{ name: 'y', y: 4 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'MUX' }, { kind: 'chip', chipId: 'AND' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'XOR' }],
+    spec: (m) => {
+      const a = m.a ? 1 : 0, b = m.b ? 1 : 0, sel = (m.op1 ? 2 : 0) + (m.op0 ? 1 : 0);
+      const r = [a & b, a | b, a ^ b, (a & b) ? 0 : 1][sel];
+      return { y: r as Bit };
+    },
+    produces: { id: 'ALU', name: 'ALU', nameEn: 'ALU', glyph: '⊞' },
+    par: 34,
+  },
+
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
   {
     id: 't-not', chapter: 'おまけ：トランジスタ', chapterEn: 'Bonus: Transistors',
