@@ -8,11 +8,14 @@
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
 
   const rows = $derived(
-    lv.spec ? truthTable(lv.inputs.map(p => p.name), lv.spec) : []
+    lv.sequential && lv.steps ? lv.steps.map(s => ({ in: s.in, expected: s.expected }))
+      : lv.spec ? truthTable(lv.inputs.map(p => p.name), lv.spec) : []
   );
   const outNames = $derived(lv.outputs.map(p => p.name));
+  const tableLabel = $derived(lv.sequential ? L('テスト手順（上から順に）', 'Test sequence (top to bottom)') : t('truthTable'));
 
   function rowIsCurrent(r: { in: Record<string, Bit> }) {
+    if (lv.sequential) return false; // a time sequence, not a live row
     return lv.inputs.every(p => (game.inputs[p.name] ?? 0) === r.in[p.name]);
   }
   // pair verify results to rows by index (same enumeration order)
@@ -48,7 +51,7 @@
 
   {#if rows.length}
     <div>
-      <div class="rail-label">{t('truthTable')}</div>
+      <div class="rail-label">{tableLabel}</div>
       <table class="tt">
         <thead>
           <tr>
