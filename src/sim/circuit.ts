@@ -9,7 +9,7 @@
    ============================================================ */
 import type { Flat, Bit } from './netlist';
 
-export type Kind = 'nand' | 'input' | 'output' | 'high' | 'low' | 'chip' | 'nmos' | 'pmos';
+export type Kind = 'nand' | 'input' | 'output' | 'high' | 'low' | 'chip' | 'nmos' | 'pmos' | 'dff';
 
 export interface PinRef { inst: string; pin: string }
 export interface Wire { a: PinRef; b: PinRef }
@@ -50,6 +50,8 @@ export function pinsOf(inst: Instance, lib: ChipLib): PinDef[] {
     case 'high': case 'low': return [{ name: 'y', dir: 'out' }];
     // transistors: gate (control) + two bidirectional channel terminals
     case 'nmos': case 'pmos': return [{ name: 'g', dir: 'in' }, { name: 's', dir: 'io' }, { name: 'd', dir: 'io' }];
+    // D flip-flop primitive: data + clock in, Q out
+    case 'dff': return [{ name: 'd', dir: 'in' }, { name: 'clk', dir: 'in' }, { name: 'q', dir: 'out' }];
     case 'chip': {
       const def = lib.get(inst.chipId!);
       if (!def) throw new Error(`unknown chip: ${inst.chipId}`);
@@ -69,7 +71,7 @@ class UF {
   union(a: number, b: number) { const ra = this.find(a), rb = this.find(b); if (ra !== rb) this.parent[rb] = ra; }
 }
 
-interface Raw { gates: { a: number; b: number; out: number }[]; forced: { net: number; val: Bit }[] }
+interface Raw { gates: { a: number; b: number; out: number }[]; forced: { net: number; val: Bit }[]; dffs: { d: number; clk: number; q: number }[] }
 interface Iface { inputs: Map<string, number>; outputs: Map<string, number> }
 
 function expand(circuit: Circuit, lib: ChipLib, uf: UF, raw: Raw, depth: number, topPins?: Map<string, number>): Iface {
@@ -93,6 +95,7 @@ function expand(circuit: Circuit, lib: ChipLib, uf: UF, raw: Raw, depth: number,
       case 'low': raw.forced.push({ net: netOf(inst.id, 'y'), val: 0 }); break;
       case 'input': if (inst.name) ifIn.set(inst.name, netOf(inst.id, 'y')); break;
       case 'output': if (inst.name) ifOut.set(inst.name, netOf(inst.id, 'x')); break;
+      case 'dff': raw.dffs.push({ d: netOf(inst.id, 'd'), clk: netOf(inst.id, 'clk'), q: netOf(inst.id, 'q') }); break;
       case 'chip': {
         const def = lib.get(inst.chipId!);
         if (!def) throw new Error(`unknown chip: ${inst.chipId}`);
@@ -121,13 +124,13 @@ export interface CompileResult {
 
 export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResult {
   const uf = new UF();
-  const raw: Raw = { gates: [], forced: [] };
+  const raw: Raw = { gates: [], forced: [], dffs: [] };
   const topPins = new Map<string, number>();
   let top: Iface;
   try {
     top = expand(circuit, lib, uf, raw, 0, topPins);
   } catch (e) {
-    return { flat: { numNets: 0, gates: [], forced: [], inputs: [], outputs: [] }, gateCount: 0, errors: [(e as Error).message], pinNets: new Map() };
+    return { flat: { numNets: 0, gates: [], forced: [], dffs: [], inputs: [], outputs: [] }, gateCount: 0, errors: [(e as Error).message], pinNets: new Map() };
   }
 
   // resolve roots and compact net ids
@@ -141,6 +144,7 @@ export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResu
   };
   const gates = raw.gates.map(g => ({ a: R(g.a), b: R(g.b), out: R(g.out) }));
   const forced = raw.forced.map(f => ({ net: R(f.net), val: f.val }));
+  const dffs = raw.dffs.map(d => ({ d: R(d.d), clk: R(d.clk), q: R(d.q) }));
   const inputs = [...top.inputs].map(([name, n]) => ({ name, net: R(n) }));
   const outputs = [...top.outputs].map(([name, n]) => ({ name, net: R(n) }));
 
@@ -148,6 +152,7 @@ export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResu
   const driverCount = new Array<number>(k).fill(0);
   for (const g of gates) driverCount[g.out]++;
   for (const f of forced) driverCount[f.net]++;
+  for (const d of dffs) driverCount[d.q]++;
   for (const i of inputs) driverCount[i.net]++;
   const errors: string[] = [];
   let shorts = 0;
@@ -157,5 +162,5 @@ export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResu
   const pinNets = new Map<string, number>();
   for (const [k, n] of topPins) pinNets.set(k, R(n));
 
-  return { flat: { numNets: k, gates, forced, inputs, outputs }, gateCount: gates.length, errors, pinNets };
+  return { flat: { numNets: k, gates, forced, dffs, inputs, outputs }, gateCount: gates.length, errors, pinNets };
 }
