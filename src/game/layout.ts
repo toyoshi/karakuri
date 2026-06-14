@@ -22,7 +22,14 @@ export function anchors(inst: Instance, lib: ChipLib): Anchor[] {
       ];
     case 'input': return [{ name: 'y', dir: 'out', fx: 1, fy: 0.5 }];
     case 'output': return [{ name: 'x', dir: 'in', fx: 0, fy: 0.5 }];
-    case 'high': case 'low': return [{ name: 'y', dir: 'out', fx: 1, fy: 0.5 }];
+    case 'high': return [{ name: 'y', dir: 'out', fx: 0.5, fy: 1 }];  // power feeds downward
+    case 'low': return [{ name: 'y', dir: 'out', fx: 0.5, fy: 0 }];    // ground takes from above
+    case 'nmos': case 'pmos':
+      return [
+        { name: 'g', dir: 'in', fx: 0, fy: 0.5 },   // gate on the left
+        { name: 's', dir: 'io', fx: 0.5, fy: 0 },    // channel top
+        { name: 'd', dir: 'io', fx: 0.5, fy: 1 },    // channel bottom
+      ];
     case 'chip': {
       const pins = pinsOf(inst, lib);
       const ins = pins.filter(p => p.dir === 'in');

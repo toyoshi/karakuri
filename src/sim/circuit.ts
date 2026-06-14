@@ -9,7 +9,7 @@
    ============================================================ */
 import type { Flat, Bit } from './netlist';
 
-export type Kind = 'nand' | 'input' | 'output' | 'high' | 'low' | 'chip';
+export type Kind = 'nand' | 'input' | 'output' | 'high' | 'low' | 'chip' | 'nmos' | 'pmos';
 
 export interface PinRef { inst: string; pin: string }
 export interface Wire { a: PinRef; b: PinRef }
@@ -40,7 +40,7 @@ export interface ChipDef {
 
 export type ChipLib = Map<string, ChipDef>;
 
-export interface PinDef { name: string; dir: 'in' | 'out' }
+export interface PinDef { name: string; dir: 'in' | 'out' | 'io' }
 
 export function pinsOf(inst: Instance, lib: ChipLib): PinDef[] {
   switch (inst.kind) {
@@ -48,6 +48,8 @@ export function pinsOf(inst: Instance, lib: ChipLib): PinDef[] {
     case 'input': return [{ name: 'y', dir: 'out' }];
     case 'output': return [{ name: 'x', dir: 'in' }];
     case 'high': case 'low': return [{ name: 'y', dir: 'out' }];
+    // transistors: gate (control) + two bidirectional channel terminals
+    case 'nmos': case 'pmos': return [{ name: 'g', dir: 'in' }, { name: 's', dir: 'io' }, { name: 'd', dir: 'io' }];
     case 'chip': {
       const def = lib.get(inst.chipId!);
       if (!def) throw new Error(`unknown chip: ${inst.chipId}`);

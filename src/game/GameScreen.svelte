@@ -31,8 +31,8 @@
     {#each LEVELS as l, i}
       <button class="lvl" class:on={i === game.levelIdx} class:done={game.completed.has(l.id)}
               onclick={() => go(i)} title={L(l.title, l.titleEn)}>
-        <span class="g">{l.produces.glyph}</span>
-        <span class="nm">{l.produces.name}</span>
+        <span class="g">{l.glyph}</span>
+        <span class="nm">{l.navName}</span>
       </button>
     {/each}
   </nav>

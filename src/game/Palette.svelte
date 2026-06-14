@@ -11,12 +11,16 @@
     if (kind === 'nand') return 'NAND';
     if (kind === 'high') return '1';
     if (kind === 'low') return '0';
+    if (kind === 'nmos') return 'N';
+    if (kind === 'pmos') return 'P';
     return game.chipLib.get(chipId!)?.glyph ?? '?';
   }
   function nameOf(kind: string, chipId?: string) {
     if (kind === 'nand') return 'NAND';
     if (kind === 'high') return t('power');
     if (kind === 'low') return t('ground');
+    if (kind === 'nmos') return 'NMOS';
+    if (kind === 'pmos') return 'PMOS';
     return game.chipLib.get(chipId!)?.name ?? chipId;
   }
   // only show chips that have actually been earned

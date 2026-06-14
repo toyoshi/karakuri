@@ -18,8 +18,9 @@
   // pair verify results to rows by index (same enumeration order)
   const verifyRows = $derived(game.lastVerify?.rows ?? null);
 
-  const gates = $derived(game.compiled.gateCount);
-  const errs = $derived(game.compiled.errors);
+  const cost = $derived(game.cost);
+  const costLabel = $derived(game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : (game.lang === 'ja' ? 'ゲート数' : 'gates'));
+  const errs = $derived(game.substrate === 'switch' ? [] : game.compiled.errors);
 
   function share() {
     const url = location.origin + location.pathname + '#' + lv.id;
@@ -78,10 +79,10 @@
   {/if}
 
   <div class="score">
-    <span>{t('gates')} <b>{gates}</b></span>
+    <span>{costLabel} <b>{cost}</b></span>
     <span>{t('par')} <b>{lv.par}</b></span>
     {#if game.best[lv.id] !== undefined}<span>{t('best')} <b>{game.best[lv.id]}</b></span>{/if}
-    <span>{t('delay')} <b>{game.live.ticks}</b></span>
+    {#if game.substrate !== 'switch'}<span>{t('delay')} <b>{game.live.ticks}</b></span>{/if}
   </div>
 
   <div class="actions">
@@ -89,7 +90,7 @@
       <button class="btn" onclick={() => game.verify()}>{t('verify')}</button>
     {:else}
       <button class="btn" onclick={share}>↗ {t('share')}</button>
-      {#if game.levelIdx < 3}
+      {#if game.levelIdx < game.totalLevels - 1}
         <button class="btn btn--ghost" onclick={() => game.loadLevel(game.levelIdx + 1)}>{t('next')} →</button>
       {/if}
     {/if}

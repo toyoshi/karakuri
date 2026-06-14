@@ -8,6 +8,7 @@ import type { Bit } from '../sim/netlist';
 import { Simulator } from '../sim/netlist';
 import type { Circuit, Instance, Wire, ChipDef, ChipLib, PinRef } from '../sim/circuit';
 import { compile } from '../sim/circuit';
+import { buildSwitch, runSwitch, verifySwitch } from '../sim/switchlevel';
 import { verifyCombinational, verifySequential, truthTable } from '../sim/verify';
 import { LEVELS, initialCircuit, type Level, type PaletteItem } from './levels';
 import { pinKey } from './layout';
@@ -55,11 +56,26 @@ export class Game {
   lastVerify = $state<ReturnType<typeof verifyCombinational> | null>(null);
 
   get level(): Level { return LEVELS[this.levelIdx]; }
+  get totalLevels(): number { return LEVELS.length; }
+  get substrate(): 'gate' | 'switch' { return this.level.substrate ?? 'gate'; }
 
   compiled = $derived(compile(this.circuit, this.chipLib));
 
+  /** cost metric: transistors for switch levels, NAND count for gate levels */
+  cost = $derived.by(() => {
+    if (this.substrate === 'switch') return this.circuit.instances.filter(i => i.kind === 'nmos' || i.kind === 'pmos').length;
+    return this.compiled.gateCount;
+  });
+
   /** live net values keyed by top-level pin key, recomputed on every edit */
   live = $derived.by(() => {
+    if (this.substrate === 'switch') {
+      const net = buildSwitch(this.circuit, this.chipLib);
+      const res = runSwitch(net, this.inputs);
+      const vals = new Map<string, Bit>();
+      for (const [k, n] of net.pinNets) vals.set(k, res.val[n] as Bit);
+      return { vals, settled: res.settled, ticks: 0, shorted: res.shorted, floating: res.floating };
+    }
     const { flat, pinNets } = this.compiled;
     const sim = new Simulator(flat);
     for (const name in this.inputs) {
@@ -68,7 +84,7 @@ export class Game {
     const res = sim.settle();
     const vals = new Map<string, Bit>();
     for (const [k, net] of pinNets) vals.set(k, sim.values[net] as Bit);
-    return { vals, settled: res.settled, ticks: res.ticks };
+    return { vals, settled: res.settled, ticks: res.ticks, shorted: false, floating: false };
   });
 
   pinValue(instId: string, pin: string): Bit | undefined {
@@ -81,7 +97,7 @@ export class Game {
     this.levelIdx = idx;
     const lv = LEVELS[idx];
     this.circuit = initialCircuit(lv);
-    this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, 0 as Bit]));
+    this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, 1 as Bit])); // inputs start ON, so wires show life
     this.tool = { type: 'wire' };
     this.wiring = null;
     this.solved = false;
@@ -152,24 +168,32 @@ export class Game {
   /* ---------- verification ---------- */
   verify(): boolean {
     const lv = this.level;
-    const { flat, gateCount, errors } = this.compiled;
-    if (errors.length) { this.message = { text: errors.join(' / '), kind: 'err' }; return false; }
+    const ja = this.lang === 'ja';
+    const rows = truthTable(lv.inputs.map(p => p.name), lv.spec!);
     let res;
-    if (lv.sequential && lv.steps) res = verifySequential(flat, lv.steps);
-    else res = verifyCombinational(flat, truthTable(lv.inputs.map(p => p.name), lv.spec!));
+    if (this.substrate === 'switch') {
+      res = verifySwitch(buildSwitch(this.circuit, this.chipLib), rows);
+    } else {
+      const { flat, errors } = this.compiled;
+      if (errors.length) { this.message = { text: errors.join(' / '), kind: 'err' }; return false; }
+      res = (lv.sequential && lv.steps) ? verifySequential(flat, lv.steps) : verifyCombinational(flat, rows);
+    }
     this.lastVerify = res;
-    if (res.oscillated) { this.message = { text: this.lang === 'ja' ? '信号が安定しません（発振）。フィードバックを見直そう。' : 'Signal never settles (oscillating).', kind: 'err' }; return false; }
-    if (!res.pass) { this.message = { text: this.lang === 'ja' ? '真理値表が一致しません。赤い行を見て。' : "Truth table mismatch — check the red rows.", kind: 'err' }; return false; }
+    if (res.oscillated) { this.message = { text: ja ? '信号が安定しません（発振）。配線を見直そう。' : 'Signal never settles (oscillating).', kind: 'err' }; return false; }
+    if (!res.pass) { this.message = { text: ja ? '一致しません。赤い行を見て。出力が浮いていない？' : 'Mismatch — check the red rows. Is the output floating?', kind: 'err' }; return false; }
     // success!
     this.solved = true;
     this.completed.add(lv.id); this.persistDone();
-    this.recordBest(lv.id, gateCount);
-    this.earnChip(lv);
-    this.message = { text: this.lang === 'ja' ? `クリア！ ${lv.produces.name} を作った（NAND ${gateCount}個）` : `Solved! You built ${lv.produces.name} (${gateCount} NANDs)`, kind: 'ok' };
+    this.recordBest(lv.id, this.cost);
+    if (lv.produces) this.earnChip(lv);
+    const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : (ja ? 'NAND' : 'NANDs');
+    const what = lv.produces ? (ja ? lv.produces.name + ' を作った' : 'built ' + lv.produces.name) : (ja ? '完成' : 'done');
+    this.message = { text: ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`, kind: 'ok' };
     return true;
   }
 
   private earnChip(lv: Level) {
+    if (!lv.produces) return;
     const def: ChipDef = {
       id: lv.produces.id, name: lv.produces.name, glyph: lv.produces.glyph,
       inputs: lv.inputs.map(p => p.name), outputs: lv.outputs.map(p => p.name),
