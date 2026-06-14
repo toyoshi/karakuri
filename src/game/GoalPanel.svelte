@@ -4,6 +4,7 @@
   import { truthTable } from '../sim/verify';
   import { Simulator, type Bit } from '../sim/netlist';
   import { buildSwitch, runSwitch } from '../sim/switchlevel';
+  import { shareCard } from './sharecard';
 
   const lv = $derived(game.level);
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
@@ -51,14 +52,29 @@
   const costLabel = $derived(game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : (game.lang === 'ja' ? 'ゲート数' : 'gates'));
   const errs = $derived(game.substrate === 'switch' ? [] : game.compiled.errors);
 
-  function share() {
-    const url = location.origin + location.pathname + '#' + lv.id;
-    const txt = L(
-      `「${lv.title}」を NAND ${game.best[lv.id] ?? cost} 個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`,
-      `Built "${lv.titleEn}" from ${game.best[lv.id] ?? cost} NANDs on Karakuri — build CS from the ground up.`
-    );
-    if (navigator.share) navigator.share({ title: 'Karakuri', text: txt, url }).catch(() => {});
-    else { navigator.clipboard?.writeText(txt + ' ' + url); game.message = { text: L('コピーしました', 'Copied to clipboard'), kind: 'info' }; }
+  let sharing = $state(false);
+  async function share() {
+    if (sharing) return; sharing = true;
+    try {
+      const url = location.origin + location.pathname + '#' + lv.id;
+      const n = game.best[lv.id] ?? cost;
+      const unit = game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : 'NAND';
+      const txt = L(
+        `「${lv.title}」を ${unit} ${n}個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`,
+        `Built "${lv.titleEn}" from ${n} ${unit} on Karakuri — build a computer from a single NAND.`
+      );
+      const table = (!lv.sequential && rows.length)
+        ? { inputs: lv.inputs.map(p => p.name), outputs: outNames, rows: rows.map(r => ({ in: r.in, out: r.expected })) }
+        : null;
+      const res = await shareCard({
+        title: L(lv.title, lv.titleEn), unit, cost: n, par: lv.par,
+        delay: game.substrate === 'switch' ? null : game.live.ticks,
+        lang: game.lang, table, url,
+      }, txt);
+      game.message = { text: res === 'shared' ? L('シェアしました', 'Shared!') : L('シェア画像を保存しました（SNSに貼れます）', 'Share image saved — post it anywhere'), kind: 'ok' };
+    } catch {
+      game.message = { text: L('シェアに失敗しました', 'Share failed'), kind: 'err' };
+    } finally { sharing = false; }
   }
 </script>
 
