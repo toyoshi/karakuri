@@ -9,7 +9,7 @@ import type { Instance, Circuit } from '../sim/circuit';
 import { CELL } from './layout';
 
 export interface PaletteItem {
-  kind: 'nand' | 'high' | 'low' | 'chip' | 'nmos' | 'pmos';
+  kind: 'nand' | 'high' | 'low' | 'chip' | 'nmos' | 'pmos' | 'dff';
   chipId?: string;
 }
 
@@ -192,6 +192,51 @@ export const LEVELS: Level[] = [
     ],
     produces: { id: 'DLATCH', name: 'Dラッチ', nameEn: 'D latch', glyph: 'D' },
     par: 5,
+  },
+
+  /* ---------- Chapter 4 — registers ---------- */
+  {
+    id: 'mux', chapter: 'レジスタ', chapterEn: 'Registers',
+    glyph: '⑂', navName: 'セレクタ', navNameEn: 'MUX',
+    title: 'マルチプレクサ（選択器）', titleEn: 'Multiplexer (selector)',
+    concept: '信号でデータを選ぶ', conceptEn: 'pick data with a control signal',
+    goal: '選択線 S で出力を切り替える。S=0 なら Y=A、S=1 なら Y=B。「どちらを通すか」をスイッチできる、回路の交差点。',
+    goalEn: 'A selector: when S=0, Y=A; when S=1, Y=B. The crossroads of a circuit — choose which input flows through.',
+    idea: 'Y =（A かつ S でない）または（B かつ S）。たった3入力の選択器が、レジスタやCPUのデータ経路の心臓になる。',
+    ideaEn: 'Y = (A and not-S) or (B and S). This tiny chooser becomes the heart of registers and a CPU datapath.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 2 }, { name: 'B', y: 4 }, { name: 'S', y: 6 }],
+    outputs: [{ name: 'Y', y: 4 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'NOT' }, { kind: 'chip', chipId: 'AND' }, { kind: 'chip', chipId: 'OR' }],
+    spec: (m) => ({ Y: ((m.S ? m.B : m.A) ? 1 : 0) as Bit }),
+    produces: { id: 'MUX', name: 'セレクタ', nameEn: 'MUX', glyph: '⑂' },
+    par: 9,
+  },
+  {
+    id: 'register', chapter: 'レジスタ', chapterEn: 'Registers',
+    glyph: '▭', navName: 'レジスタ', navNameEn: 'Register', sequential: true,
+    title: '1ビットレジスタ', titleEn: '1-bit register',
+    concept: '「読める・書ける」記憶', conceptEn: 'memory you can read and write',
+    goal: '新しい部品 DFF（クロックの立ち上がりで D を記憶）が道具箱に。load=1 のとき clk の立ち上がりで in を記憶し、load=0 なら値を保持する 1 ビットレジスタを作ろう。セレクタ(MUX)で「新しい値か、今の値か」を選ぶのがコツ。',
+    goalEn: 'A new part — DFF (stores D on the clock edge) — is in your toolbox. Build a 1-bit register: on a clk rising edge it stores in when load=1, and holds otherwise. Trick: use a MUX to choose "new value vs. current value".',
+    idea: 'DFFの入力に「load なら in、さもなくば自分の出力 Q」を MUX で選んで戻す。これが CPU のレジスタそのもの。記憶に「読み書き」が付いた瞬間だ。',
+    ideaEn: "Feed the DFF either in (if load) or its own Q (else) via a MUX. That's exactly a CPU register — memory you can read and write.",
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'in', y: 2 }, { name: 'load', y: 4 }, { name: 'clk', y: 6 }],
+    outputs: [{ name: 'Q', y: 4 }],
+    palette: [{ kind: 'dff' }, { kind: 'chip', chipId: 'MUX' }, { kind: 'nand' }],
+    steps: [
+      { in: { in: 1, load: 1, clk: 0 }, expected: { Q: 0 } },
+      { in: { in: 1, load: 1, clk: 1 }, expected: { Q: 1 } }, // load 1 on edge → store in=1
+      { in: { in: 0, load: 0, clk: 0 }, expected: { Q: 1 } },
+      { in: { in: 0, load: 0, clk: 1 }, expected: { Q: 1 } }, // load 0 → hold
+      { in: { in: 0, load: 1, clk: 0 }, expected: { Q: 1 } },
+      { in: { in: 0, load: 1, clk: 1 }, expected: { Q: 0 } }, // load 1 on edge → store in=0
+      { in: { in: 1, load: 0, clk: 0 }, expected: { Q: 0 } },
+      { in: { in: 1, load: 0, clk: 1 }, expected: { Q: 0 } }, // hold
+    ],
+    produces: { id: 'REG', name: 'レジスタ', nameEn: 'Register', glyph: '▭' },
+    par: 9,
   },
 
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */

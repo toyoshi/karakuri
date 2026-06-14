@@ -30,6 +30,12 @@ export function anchors(inst: Instance, lib: ChipLib): Anchor[] {
         { name: 's', dir: 'io', fx: 0.5, fy: 0 },    // channel top
         { name: 'd', dir: 'io', fx: 0.5, fy: 1 },    // channel bottom
       ];
+    case 'dff':
+      return [
+        { name: 'd', dir: 'in', fx: 0, fy: 0.3 },
+        { name: 'clk', dir: 'in', fx: 0, fy: 0.7 },
+        { name: 'q', dir: 'out', fx: 1, fy: 0.5 },
+      ];
     case 'chip': {
       const pins = pinsOf(inst, lib);
       const ins = pins.filter(p => p.dir === 'in');

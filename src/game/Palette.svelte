@@ -17,12 +17,14 @@
     if (kind === 'nand') return 'NAND';
     if (kind === 'high') return '1'; if (kind === 'low') return '0';
     if (kind === 'nmos') return 'N'; if (kind === 'pmos') return 'P';
+    if (kind === 'dff') return 'DFF';
     return game.chipLib.get(chipId!)?.glyph ?? '?';
   }
   function nameOf(kind: string, chipId?: string) {
     if (kind === 'nand') return 'NAND';
     if (kind === 'high') return t('power'); if (kind === 'low') return t('ground');
     if (kind === 'nmos') return 'NMOS'; if (kind === 'pmos') return 'PMOS';
+    if (kind === 'dff') return L('DFF（フリップフロップ）', 'DFF (flip-flop)');
     return chipName(game.chipLib.get(chipId!)) || chipId!;
   }
   const items = $derived(lv.palette.filter(it => it.kind !== 'chip' || game.chipLib.has(it.chipId!)));
@@ -70,6 +72,7 @@
     if (it.kind === 'pmos') return L('ゲートが0のとき導通するスイッチ', 'a switch that conducts when its gate is 0');
     if (it.kind === 'high') return L('常に 1 を出力', 'always outputs 1');
     if (it.kind === 'low') return L('常に 0 を出力', 'always outputs 0');
+    if (it.kind === 'dff') return L('クロック clk の立ち上がりで D を記憶（与えられた部品）', 'stores D on the clk rising edge (a given part)');
     if (it.kind === 'nand') return L('両方が1のときだけ0', '0 only when both are 1');
     return null;
   }

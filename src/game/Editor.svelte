@@ -17,7 +17,7 @@
   const px = $derived(gridPx(lv));
   const insts = $derived(game.circuit.instances);
   const byId = $derived(new Map(insts.map(i => [i.id, i])));
-  const movable = (k: string) => k === 'nand' || k === 'chip' || k === 'nmos' || k === 'pmos' || k === 'high' || k === 'low';
+  const movable = (k: string) => k === 'nand' || k === 'chip' || k === 'nmos' || k === 'pmos' || k === 'high' || k === 'low' || k === 'dff';
   const pkey = (r: PinRef) => r.inst + ':' + r.pin;
   const wkey = (w: Wire) => pkey(w.a) + '|' + pkey(w.b);
   const connected = $derived(new Set(game.circuit.wires.flatMap(w => [pkey(w.a), pkey(w.b)])));
@@ -148,6 +148,7 @@
       case 'low': return { t: ja ? '接地' : 'Ground', d: ja ? '常に 0' : 'always 0' };
       case 'nmos': return { t: 'NMOS', d: ja ? 'ゲートが1のとき導通' : 'conducts when gate is 1' };
       case 'pmos': return { t: 'PMOS', d: ja ? 'ゲートが0のとき導通' : 'conducts when gate is 0' };
+      case 'dff': return { t: 'DFF', d: ja ? 'クロック(clk)の立ち上がりで D を記憶する' : 'stores D on the clock (clk) rising edge', pins: 'd, clk → q' };
       case 'chip': {
         const def = game.chipLib.get(inst.chipId!);
         const desc = CHIP_DESC[inst.chipId!];
@@ -233,6 +234,10 @@
         {:else if inst.kind === 'nmos' || inst.kind === 'pmos'}
           <rect class="tr t-{inst.kind}" x={x * CELL + pad} y={y * CELL + pad} width={CELL - pad * 2} height={h * CELL - pad * 2} rx="8" />
           <text class="trlbl" x={(x + 0.5) * CELL} y={(y + 0.5) * CELL + 5}>{inst.kind === 'nmos' ? 'N' : 'P'}</text>
+        {:else if inst.kind === 'dff'}
+          <rect class="dff" x={x * CELL + pad} y={y * CELL + pad} width={CELL - pad * 2} height={CELL - pad * 2} rx="9" />
+          <text class="dfflbl" x={(x + 0.5) * CELL} y={(y + 0.5) * CELL + 4}>DFF</text>
+          <path class="clkmark" d="M{x * CELL + pad + 1} {(y + 0.7) * CELL - 5} l 7 5 l -7 5" />
         {:else}
           <rect class="body" x={x * CELL + pad} y={y * CELL + pad} width={CELL - pad * 2} height={h * CELL - pad * 2} rx="10" />
           <text class="glyph" x={(x + 0.5) * CELL} y={(y + h * 0.5) * CELL + (inst.kind === 'chip' ? 0 : 5)}>
@@ -318,6 +323,11 @@
   .rail { stroke-width: 1.6; }
   .r-high { fill: #2a2110; stroke: var(--brass); } .r-low { fill: #16202b; stroke: var(--signal-d); }
   .rlbl { fill: var(--paper); font-size: 16px; font-weight: 700; }
+
+  .dff { fill: #181f2e; stroke: var(--verdigris-d); stroke-width: 1.6; }
+  .comp:not(.locked):hover .dff { stroke: var(--brass); }
+  .dfflbl { fill: var(--verdigris); font-size: 13px; font-weight: 600; }
+  .clkmark { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linejoin: round; }
 
   .node-btn rect { fill: #221b10; stroke: var(--brass-deep); stroke-width: 1.5; cursor: pointer; transition: fill .14s, stroke .14s; }
   .node-btn.on rect { fill: var(--brass); stroke: var(--brass-bright); filter: drop-shadow(0 0 8px var(--brass-glow)); }
