@@ -21,6 +21,7 @@ export interface Instance {
   name?: string;       // interface name for input/output pins
   // grid placement (UI only — ignored by the simulator)
   x?: number; y?: number; rot?: number;
+  locked?: boolean;    // level-fixed (interface IO the player can't move/delete)
 }
 
 export interface Circuit {
@@ -69,7 +70,7 @@ class UF {
 interface Raw { gates: { a: number; b: number; out: number }[]; forced: { net: number; val: Bit }[] }
 interface Iface { inputs: Map<string, number>; outputs: Map<string, number> }
 
-function expand(circuit: Circuit, lib: ChipLib, uf: UF, raw: Raw, depth: number): Iface {
+function expand(circuit: Circuit, lib: ChipLib, uf: UF, raw: Raw, depth: number, topPins?: Map<string, number>): Iface {
   if (depth > 60) throw new Error('chip hierarchy too deep (cyclic chip reference?)');
   const pinNet = new Map<string, number>();
   const netOf = (instId: string, pin: string): number => {
@@ -104,19 +105,27 @@ function expand(circuit: Circuit, lib: ChipLib, uf: UF, raw: Raw, depth: number)
       }
     }
   }
+  if (topPins) for (const [k, n] of pinNet) topPins.set(k, n);
   return { inputs: ifIn, outputs: ifOut };
 }
 
-export interface CompileResult { flat: Flat; gateCount: number; errors: string[] }
+export interface CompileResult {
+  flat: Flat;
+  gateCount: number;
+  errors: string[];
+  /** top-level pin key ("instId:pin") → final net id, for lighting wires in the editor */
+  pinNets: Map<string, number>;
+}
 
 export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResult {
   const uf = new UF();
   const raw: Raw = { gates: [], forced: [] };
+  const topPins = new Map<string, number>();
   let top: Iface;
   try {
-    top = expand(circuit, lib, uf, raw, 0);
+    top = expand(circuit, lib, uf, raw, 0, topPins);
   } catch (e) {
-    return { flat: { numNets: 0, gates: [], forced: [], inputs: [], outputs: [] }, gateCount: 0, errors: [(e as Error).message] };
+    return { flat: { numNets: 0, gates: [], forced: [], inputs: [], outputs: [] }, gateCount: 0, errors: [(e as Error).message], pinNets: new Map() };
   }
 
   // resolve roots and compact net ids
@@ -143,5 +152,8 @@ export function compile(circuit: Circuit, lib: ChipLib = new Map()): CompileResu
   for (let i = 0; i < k; i++) if (driverCount[i] > 1) shorts++;
   if (shorts > 0) errors.push(`${shorts} 本の配線が複数の出力に繋がっています（ショート）`);
 
-  return { flat: { numNets: k, gates, forced, inputs, outputs }, gateCount: gates.length, errors };
+  const pinNets = new Map<string, number>();
+  for (const [k, n] of topPins) pinNets.set(k, R(n));
+
+  return { flat: { numNets: k, gates, forced, inputs, outputs }, gateCount: gates.length, errors, pinNets };
 }
