@@ -2,7 +2,8 @@
   import { game } from './store.svelte';
   import { t } from './i18n';
   import { truthTable } from '../sim/verify';
-  import type { Bit } from '../sim/netlist';
+  import { Simulator, type Bit } from '../sim/netlist';
+  import { buildSwitch, runSwitch } from '../sim/switchlevel';
 
   const lv = $derived(game.level);
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
@@ -21,6 +22,31 @@
   // pair verify results to rows by index (same enumeration order)
   const verifyRows = $derived(game.lastVerify?.rows ?? null);
 
+  /** what the CURRENT circuit actually outputs for each row — live, so you see
+      your circuit's truth table as you build (sequential uses post-verify got). */
+  const actual = $derived.by((): (Record<string, Bit> | null)[] | null => {
+    if (lv.sequential) return verifyRows ? verifyRows.map(r => r.got) : null;
+    if (game.substrate === 'switch') {
+      const net = buildSwitch(game.circuit, game.chipLib);
+      return rows.map(r => { const res = runSwitch(net, r.in); return (res.shorted || res.floating) ? null : res.outputs; });
+    }
+    const { flat, errors } = game.compiled;
+    if (errors.length) return null;
+    const have = new Set(flat.inputs.map(i => i.name));
+    const outsReady = outNames.every(n => flat.outputs.some(o => o.name === n));
+    if (!outsReady) return null; // circuit's interface not present yet (transient during level load)
+    const sim = new Simulator(flat);
+    return rows.map(r => {
+      sim.reset();
+      for (const k in r.in) if (have.has(k)) sim.setInput(k, r.in[k]);
+      const s = sim.settle();
+      return s.settled ? sim.readOutputs() : null;
+    });
+  });
+  const allMatch = $derived(actual && rows.length > 0 && rows.every((r, i) => {
+    const a = actual![i]; return a && outNames.every(n => a[n] === r.expected[n]);
+  }));
+
   const cost = $derived(game.cost);
   const costLabel = $derived(game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : (game.lang === 'ja' ? 'ゲート数' : 'gates'));
   const errs = $derived(game.substrate === 'switch' ? [] : game.compiled.errors);
@@ -28,8 +54,8 @@
   function share() {
     const url = location.origin + location.pathname + '#' + lv.id;
     const txt = L(
-      `「${lv.title}」を NAND ${game.best[lv.id] ?? gates} 個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`,
-      `Built "${lv.titleEn}" from ${game.best[lv.id] ?? gates} NANDs on Karakuri — build CS from the ground up.`
+      `「${lv.title}」を NAND ${game.best[lv.id] ?? cost} 個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`,
+      `Built "${lv.titleEn}" from ${game.best[lv.id] ?? cost} NANDs on Karakuri — build CS from the ground up.`
     );
     if (navigator.share) navigator.share({ title: 'Karakuri', text: txt, url }).catch(() => {});
     else { navigator.clipboard?.writeText(txt + ' ' + url); game.message = { text: L('コピーしました', 'Copied to clipboard'), kind: 'info' }; }
@@ -54,24 +80,41 @@
       <div class="rail-label">{tableLabel}</div>
       <table class="tt">
         <thead>
+          <tr class="grp">
+            <th colspan={lv.inputs.length}></th>
+            <th class="sep"></th>
+            <th colspan={outNames.length}>{L('目標', 'target')}</th>
+            {#if actual}<th class="sep2"></th><th colspan={outNames.length} class:okgrp={allMatch}>{L('今の回路', 'yours')}</th>{/if}
+          </tr>
           <tr>
             {#each lv.inputs as p}<th>{p.name}</th>{/each}
             <th class="sep">→</th>
             {#each outNames as n}<th>{n}</th>{/each}
-            {#if verifyRows}<th></th>{/if}
+            {#if actual}<th class="sep2"></th>{#each outNames as n}<th>{n}</th>{/each}{/if}
           </tr>
         </thead>
         <tbody>
           {#each rows as r, i}
-            <tr class:cur={rowIsCurrent(r)} class:bad={verifyRows && !verifyRows[i].pass}>
+            <tr class:cur={rowIsCurrent(r)}
+                class:bad={actual && actual[i] && outNames.some(n => actual[i]![n] !== r.expected[n])}>
               {#each lv.inputs as p}<td class="bit b{r.in[p.name]}">{r.in[p.name]}</td>{/each}
               <td class="sep"></td>
               {#each outNames as n}<td class="bit b{r.expected[n]}">{r.expected[n]}</td>{/each}
-              {#if verifyRows}<td class="mark">{verifyRows[i].pass ? '✓' : '✕'}</td>{/if}
+              {#if actual}
+                <td class="sep2"></td>
+                {#each outNames as n}
+                  {@const a = actual[i]}
+                  <td class="got {a == null ? 'na' : (a[n] === r.expected[n] ? 'ok' : 'no')}">{a == null ? '?' : a[n]}</td>
+                {/each}
+              {/if}
             </tr>
           {/each}
         </tbody>
       </table>
+      <div class="legend">
+        <span><i class="lit"></i>{L('明るく流れる線 = 1', 'bright flowing wire = 1')}</span>
+        <span><i class="dim"></i>{L('暗い線 = 0', 'dim wire = 0')}</span>
+      </div>
     </div>
   {/if}
 
@@ -116,11 +159,21 @@
   .tt .sep { color: var(--faint); width: 1.4em; }
   .tt .bit.b1 { color: var(--signal); }
   .tt .bit.b0 { color: var(--faint); }
-  .tt tr.cur { background: color-mix(in srgb, var(--brass) 14%, transparent); border-radius: 4px; }
-  .tt tr.bad { background: color-mix(in srgb, var(--err) 16%, transparent); }
-  .tt .mark { font-weight: 700; }
-  .tt tr.bad .mark { color: var(--err); }
-  .tt tr:not(.bad) .mark { color: var(--ok); }
+  .tt tr.cur { background: color-mix(in srgb, var(--brass) 14%, transparent); }
+  .tt tr.bad { background: color-mix(in srgb, var(--err) 13%, transparent); }
+  .tt .grp th { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); padding-bottom: 0; }
+  .tt .grp th.okgrp { color: var(--ok); }
+  .tt .sep2 { width: 1.2em; color: var(--faint); }
+  .tt .got { font-weight: 600; }
+  .tt .got.ok { color: var(--ok); }
+  .tt .got.no { color: var(--err); }
+  .tt .got.na { color: var(--faint); }
+
+  .legend { display: flex; gap: var(--sp-4); margin-top: 8px; font-size: 0.68rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+  .legend i.lit { background: var(--signal); box-shadow: 0 0 4px var(--signal-d); }
+  .legend i.dim { background: var(--ink-500); }
 
   .msg { padding: 8px 12px; border-radius: var(--r-2); font-size: var(--step--1); }
   .msg.ok { background: rgba(110,210,154,0.14); color: var(--ok); }
