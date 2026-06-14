@@ -52,21 +52,23 @@
     </div>
 
     <div class="hero__art" aria-hidden="true">
-      <svg viewBox="0 0 320 320">
+      <svg viewBox="0 0 330 300">
         <g class="w">
-          <path class="wire lit" d="M30 90 H110" /><path class="flow" d="M30 90 H110" />
-          <path class="wire lit" d="M30 150 H110" /><path class="flow" d="M30 150 H110" />
-          <path class="wire" d="M30 230 H110" />
-          <path class="wire lit" d="M170 120 H210 V160 H250" /><path class="flow" d="M170 120 H210 V160 H250" />
-          <path class="wire" d="M170 200 H210 V160" />
+          <!-- inputs → NANDs -->
+          <path class="wire lit" d="M44 100 H96" /><path class="flow" d="M44 100 H96" />
+          <path class="wire lit" d="M44 200 H96" /><path class="flow" d="M44 200 H96" />
+          <!-- NAND outputs → XOR inputs -->
+          <path class="wire lit" d="M164 100 H189 V138 H214" /><path class="flow" d="M164 100 H189 V138 H214" />
+          <path class="wire lit" d="M164 200 H189 V162 H214" /><path class="flow" d="M164 200 H189 V162 H214" />
+          <!-- XOR → lamp -->
+          <path class="wire lit" d="M278 150 H301" /><path class="flow" d="M278 150 H301" />
         </g>
-        <g class="gate"><rect x="110" y="70" width="60" height="44" rx="8"/><text x="140" y="97">NAND</text></g>
-        <g class="gate"><rect x="110" y="180" width="60" height="44" rx="8"/><text x="140" y="207">NAND</text></g>
-        <g class="gate big"><rect x="210" y="135" width="60" height="50" rx="8"/><text x="240" y="165">⊕</text></g>
-        <circle class="src on" cx="30" cy="90" r="9"/>
-        <circle class="src on" cx="30" cy="150" r="9"/>
-        <circle class="src" cx="30" cy="230" r="9"/>
-        <circle class="lamp on" cx="285" cy="160" r="11"/>
+        <g class="gate"><rect x="96" y="78" width="68" height="44" rx="9"/><text x="130" y="105">NAND</text></g>
+        <g class="gate"><rect x="96" y="178" width="68" height="44" rx="9"/><text x="130" y="205">NAND</text></g>
+        <g class="gate big"><rect x="214" y="122" width="64" height="56" rx="9"/><text x="246" y="158">⊕</text></g>
+        <circle class="src on" cx="44" cy="100" r="9"/>
+        <circle class="src on" cx="44" cy="200" r="9"/>
+        <circle class="lamp on" cx="312" cy="150" r="11"/>
       </svg>
       <span class="live">live · 信号が流れています</span>
     </div>
