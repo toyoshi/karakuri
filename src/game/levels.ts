@@ -262,6 +262,36 @@ export const LEVELS: Level[] = [
     par: 34,
   },
 
+  /* ---------- Chapter 6 — counting / time ---------- */
+  {
+    id: 'counter', chapter: 'プログラムカウンタ', chapterEn: 'Program counter',
+    glyph: '↻', navName: 'カウンタ', navNameEn: 'Counter', sequential: true,
+    title: '1ビットカウンタ', titleEn: '1-bit counter',
+    concept: '時間を刻む', conceptEn: 'keep time',
+    goal: 'en=1 のあいだ、クロックの立ち上がりごとに Q が反転する（0→1→0→1…）。en=0 なら止まって保持。DFF と XOR で作ろう。',
+    goalEn: 'While en=1, Q flips on every clock rising edge (0→1→0…). While en=0 it holds. Build it from a DFF and an XOR.',
+    idea: '数えることは、時間を刻むこと。DFF の入力に「いまの自分 XOR en」を戻すと、en の間だけ反転し続ける。これを多ビットに束ねれば、プログラムを1命令ずつ進める「プログラムカウンタ」になる——CPUの拍動だ。',
+    ideaEn: 'Counting is keeping time. Feed the DFF "(its own Q) XOR en" and it toggles while en is on. Stack these and you get a program counter — a CPU\'s heartbeat, stepping through instructions.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'en', y: 3 }, { name: 'clk', y: 6 }],
+    outputs: [{ name: 'Q', y: 4 }],
+    palette: [{ kind: 'dff' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'nand' }],
+    steps: [
+      { in: { en: 0, clk: 0 }, expected: { Q: 0 } },
+      { in: { en: 0, clk: 1 }, expected: { Q: 0 } }, // en 0 → hold
+      { in: { en: 1, clk: 0 }, expected: { Q: 0 } },
+      { in: { en: 1, clk: 1 }, expected: { Q: 1 } }, // toggle
+      { in: { en: 1, clk: 0 }, expected: { Q: 1 } },
+      { in: { en: 1, clk: 1 }, expected: { Q: 0 } }, // toggle
+      { in: { en: 1, clk: 0 }, expected: { Q: 0 } },
+      { in: { en: 1, clk: 1 }, expected: { Q: 1 } }, // toggle
+      { in: { en: 0, clk: 0 }, expected: { Q: 1 } },
+      { in: { en: 0, clk: 1 }, expected: { Q: 1 } }, // en 0 → hold
+    ],
+    produces: { id: 'CNT', name: 'カウンタ', nameEn: 'Counter', glyph: '↻' },
+    par: 4,
+  },
+
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
   {
     id: 't-not', chapter: 'おまけ：トランジスタ', chapterEn: 'Bonus: Transistors',
