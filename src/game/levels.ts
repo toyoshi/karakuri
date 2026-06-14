@@ -142,6 +142,42 @@ export const LEVELS: Level[] = [
     produces: { id: 'XOR', name: 'XOR', glyph: '⊕' },
     par: 4,
   },
+
+  /* ---------- Chapter 2 — arithmetic ---------- */
+  {
+    id: 'hadd', chapter: '算術', chapterEn: 'Arithmetic',
+    glyph: '½+', navName: '半加算',
+    title: '半加算器', titleEn: 'Half adder',
+    concept: '1ビットの足し算', conceptEn: '1-bit addition',
+    goal: '1ビット同士を足す。和 S と、繰り上がり C を出す。1+1 は「桁が上がって 10」——2進数の足し算の最小単位。',
+    goalEn: 'Add two bits. Output the sum S and the carry C. 1+1 carries — the atom of binary addition.',
+    idea: '和は「違うときだけ1」＝XOR、繰り上がりは「両方1のとき1」＝AND。足し算は、君が作ったゲートの組み合わせだった。',
+    ideaEn: 'Sum = XOR (differ), carry = AND (both). Addition is just the gates you already built.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 3 }, { name: 'B', y: 5 }],
+    outputs: [{ name: 'S', y: 3 }, { name: 'C', y: 6 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'chip', chipId: 'AND' }],
+    spec: (m) => ({ S: ((m.A ? 1 : 0) ^ (m.B ? 1 : 0)) as Bit, C: (m.A && m.B ? 1 : 0) as Bit }),
+    produces: { id: 'HADD', name: '半加算', glyph: '½+' },
+    par: 6,
+  },
+  {
+    id: 'fadd', chapter: '算術', chapterEn: 'Arithmetic',
+    glyph: 'Σ', navName: '全加算',
+    title: '全加算器', titleEn: 'Full adder',
+    concept: '繰り上がりも足す', conceptEn: 'add the carry too',
+    goal: '下の桁からの繰り上がり Cin も含めて 3 入力を足す。和 S と繰り上がり Cout を出す。これを並べれば、何ビットでも足せる。',
+    goalEn: 'Add three bits including the incoming carry Cin. Chain these and you can add any width.',
+    idea: '半加算器を2つ重ね、繰り上がりを OR でまとめる。自分で作った半加算器を部品として使う——抽象の階段を一段上がる。',
+    ideaEn: 'Two half-adders stacked, carries OR-ed together. Reuse your half-adder as a part — one more rung up.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 2 }, { name: 'B', y: 4 }, { name: 'Cin', y: 6 }],
+    outputs: [{ name: 'S', y: 3 }, { name: 'Cout', y: 5 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'HADD' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'chip', chipId: 'AND' }],
+    spec: (m) => { const s = (m.A ? 1 : 0) + (m.B ? 1 : 0) + (m.Cin ? 1 : 0); return { S: (s & 1) as Bit, Cout: (s >= 2 ? 1 : 0) as Bit }; },
+    produces: { id: 'FADD', name: '全加算', glyph: 'Σ' },
+    par: 14,
+  },
 ];
 
 /** Build the starting circuit for a level: its interface IO, placed and locked. */
