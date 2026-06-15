@@ -36,11 +36,43 @@ export interface Level {
   produces?: { id: string; name: string; nameEn?: string; glyph: string };
   par: number;            // reference cost (transistors for switch levels, NANDs for gate levels)
   sandbox?: boolean;      // free-build: no goal, full palette, fixed toggleable I/O
+  demo?: boolean;         // wordless intro: pre-wired, just toggle inputs and watch it light
+  prewired?: { instances: Instance[]; wires: { a: { inst: string; pin: string }; b: { inst: string; pin: string } }[] };
 }
 
 const COLS = 14, ROWS = 9;
 
 export const LEVELS: Level[] = [
+  /* ---------- Level 0 — wordless "touch it and watch it light" ---------- */
+  {
+    id: 'demo', chapter: 'はじめに', chapterEn: 'Start',
+    glyph: '◐', navName: '体験', navNameEn: 'Try', demo: true,
+    title: 'まず、触ってみる', titleEn: 'First — just touch it',
+    concept: '信号で遊ぶ', conceptEn: 'play with signals',
+    goal: '左のスイッチ A・B を押して、ランプ Y を光らせよう。線を電気（信号）が流れる。',
+    goalEn: 'Press switches A and B on the left to light lamp Y — watch the signal flow along the wires.',
+    idea: '回路は 0 と 1 だけで動く。スイッチ＝1、ランプが光れば＝1。組み立てるのは次から。まずは動かして感じよう。',
+    ideaEn: 'Circuits run on just 0 and 1. A switch on = 1; a lit lamp = 1. You start building next level — for now, just feel it work.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 3 }, { name: 'B', y: 5 }],
+    outputs: [{ name: 'Y', y: 4 }],
+    palette: [],
+    par: 0,
+    prewired: {
+      instances: [
+        { id: 'pg1', kind: 'nand', x: 6, y: 4 },
+        { id: 'pg2', kind: 'nand', x: 9, y: 4 },
+      ],
+      wires: [
+        { a: { inst: 'in_A', pin: 'y' }, b: { inst: 'pg1', pin: 'a' } },
+        { a: { inst: 'in_B', pin: 'y' }, b: { inst: 'pg1', pin: 'b' } },
+        { a: { inst: 'pg1', pin: 'y' }, b: { inst: 'pg2', pin: 'a' } },
+        { a: { inst: 'pg1', pin: 'y' }, b: { inst: 'pg2', pin: 'b' } },
+        { a: { inst: 'pg2', pin: 'y' }, b: { inst: 'out_Y', pin: 'x' } },
+      ],
+    },
+  },
+
   /* ---------- Chapter 1 — gates from NAND (the transistor→NAND story is told in the intro modal) ---------- */
   {
     id: 'not', chapter: '基本ゲート', chapterEn: 'Basic gates',
@@ -448,6 +480,10 @@ export function initialCircuit(level: Level): Circuit {
   }
   for (const p of level.outputs) {
     instances.push({ id: 'out_' + p.name, kind: 'output', name: p.name, x: level.cols - 1, y: p.y, locked: true });
+  }
+  if (level.prewired) {
+    for (const i of level.prewired.instances) instances.push({ ...i, locked: true });
+    return { instances, wires: level.prewired.wires.map(w => ({ a: { ...w.a }, b: { ...w.b } })) };
   }
   return { instances, wires: [] };
 }

@@ -121,7 +121,8 @@ export class Game {
     this.levelIdx = idx;
     const lv = LEVELS[idx];
     this.circuit = initialCircuit(lv);
-    this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, 1 as Bit])); // inputs start ON, so wires show life
+    // inputs usually start ON so wires show life; the demo starts OFF so pressing them lights the lamp
+    this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, (lv.demo ? 0 : 1) as Bit]));
     this.tool = { type: 'wire' };
     this.wiring = null;
     this.solved = false;

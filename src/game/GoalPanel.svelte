@@ -10,6 +10,7 @@
   const lv = $derived(game.level);
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   const hints = $derived(HINTS[lv.id] ?? []);
+  const demoLit = $derived(lv.demo && lv.outputs.some(o => game.pinValue('out_' + o.name, 'x') === 1));
   let revealed = $state(0);
   $effect(() => { game.levelIdx; revealed = 0; }); // reset hints on level change
 
@@ -81,6 +82,12 @@
     <span>{L(lv.idea, lv.ideaEn)}</span>
   </div>
 
+  {#if lv.demo}
+    <div class="demo-status" class:lit={demoLit}>
+      {demoLit ? L('✓ 光った！これが「1」。スイッチを切ると「0」に戻る。', '✓ Lit! That is a 1. Flip a switch off and it returns to 0.') : L('A と B を両方 ON にしてみよう（クリックで 0⇄1）', 'Turn both A and B ON (click to toggle 0⇄1)')}
+    </div>
+  {/if}
+
   {#if !lv.sandbox && hints.length}
     <div class="hints">
       {#each hints.slice(0, revealed) as h, i}
@@ -144,6 +151,7 @@
     <div class="msg {game.message.kind}">{game.message.text}</div>
   {/if}
 
+  {#if !lv.demo}
   <div class="score">
     <span>{costLabel} <b>{cost}</b></span>
     {#if !lv.sandbox}
@@ -154,9 +162,12 @@
     {#if game.substrate !== 'switch'}<span>{t('delay')} <b>{game.live.ticks}</b>{#if !lv.sandbox && game.bestDelay[lv.id] !== undefined}<i class="bd">(best {game.bestDelay[lv.id]})</i>{/if}</span>{/if}
   </div>
   <div class="totals">{L('通算', 'Total')}: NAND <b>{game.totalNands}</b> · ★ <b>{game.starCount}</b> · {L('クリア', 'cleared')} <b>{game.clearedCount}/{game.totalLevels}</b></div>
+  {/if}
 
   <div class="actions">
-    {#if lv.sandbox}
+    {#if lv.demo}
+      <button class="btn" onclick={() => game.loadLevel(game.levelIdx + 1)}>{L('自分で作ってみる', 'Build one yourself')} →</button>
+    {:else if lv.sandbox}
       <button class="btn btn--ghost" onclick={() => game.clearCircuit()}>{L('全部消す', 'Clear all')}</button>
     {:else if !game.solved}
       <button class="btn" onclick={() => game.verify()}>{t('verify')}</button>
@@ -178,6 +189,9 @@
   .idea b { display: block; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--verdigris); margin-bottom: 0.3em; }
   .idea span { color: var(--paper-2); font-size: var(--step--1); line-height: 1.6; }
   .rail-label { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+  .demo-status { padding: 10px 13px; border-radius: var(--r-2); font-size: var(--step-0); border: 1px solid var(--line-strong); background: var(--ink-800); color: var(--paper-2); transition: all 0.2s; }
+  .demo-status.lit { border-color: var(--signal); color: var(--signal); background: color-mix(in srgb, var(--signal) 12%, var(--ink-800)); }
 
   .hints { display: flex; flex-direction: column; gap: 8px; }
   .hint { display: flex; gap: 9px; align-items: flex-start; font-size: var(--step--1); color: var(--paper-2); line-height: 1.55; }
