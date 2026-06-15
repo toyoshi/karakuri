@@ -142,6 +142,40 @@ export const LEVELS: Level[] = [
     produces: { id: 'XOR', name: 'XOR', glyph: '⊕' },
     par: 4,
   },
+  {
+    id: 'nor', chapter: '基本ゲート', chapterEn: 'Basic gates',
+    glyph: '⊽', navName: 'NOR',
+    title: 'NOR — OR の反対', titleEn: 'NOR — the opposite of OR',
+    concept: 'どちらも0のときだけ1', conceptEn: 'true only when both are 0',
+    goal: 'A も B も 0 のときだけ Y を 1 に（OR の反転）。作った部品を組み合わせれば一瞬。',
+    goalEn: 'Y is 1 only when both A and B are 0 (OR, inverted). Quick if you reuse your chips.',
+    idea: 'OR して NOT するだけ。小さな部品が増えるほど、新しいゲートは「組み合わせ」で一瞬で出来る。これが部品化の力。',
+    ideaEn: 'Just OR then NOT. The more chips you have, the faster new gates fall out of combination — the power of encapsulation.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 3 }, { name: 'B', y: 5 }],
+    outputs: [{ name: 'Y', y: 4 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'NOT' }, { kind: 'chip', chipId: 'OR' }],
+    spec: (m) => ({ Y: (m.A || m.B ? 0 : 1) as Bit }),
+    produces: { id: 'NOR', name: 'NOR', glyph: '⊽' },
+    par: 4,
+  },
+  {
+    id: 'xnor', chapter: '基本ゲート', chapterEn: 'Basic gates',
+    glyph: '⊙', navName: 'XNOR',
+    title: 'XNOR — 同じなら1', titleEn: 'XNOR — equal detector',
+    concept: '同じときだけ1（一致）', conceptEn: 'true when they are equal',
+    goal: 'A と B が同じ値のときだけ Y を 1 に（XOR の反転）。「等しいか？」を判定する回路。',
+    goalEn: 'Y is 1 only when A and B are equal (XOR, inverted). An "are these the same?" detector.',
+    idea: 'XOR は「違うとき1」。反転すれば「同じとき1」＝一致検出器。比較器（コンピュータが等しさを判定する部品）の芯になる。',
+    ideaEn: 'XOR is "differ"; invert it for "equal" — an equality detector, the core of a comparator.',
+    cols: COLS, rows: ROWS,
+    inputs: [{ name: 'A', y: 3 }, { name: 'B', y: 5 }],
+    outputs: [{ name: 'Y', y: 4 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'NOT' }, { kind: 'chip', chipId: 'XOR' }],
+    spec: (m) => ({ Y: ((m.A ? 1 : 0) === (m.B ? 1 : 0) ? 1 : 0) as Bit }),
+    produces: { id: 'XNOR', name: 'XNOR', glyph: '⊙' },
+    par: 5,
+  },
 
   /* ---------- Chapter 2 — arithmetic ---------- */
   {
@@ -424,6 +458,12 @@ export const HINTS: Record<string, { ja: string; en: string }[]> = {
     { ja: 'XOR は「違うとき1」。目標の真理値表を見て：両方同じなら0、片方だけ1なら1。', en: 'XOR is 1 when they differ. Look at the target table: same → 0, differ → 1.' },
     { ja: 'XOR =（A∨B）かつ（¬(A∧B)）。「どちらか1」かつ「両方1ではない」。', en: 'XOR = (A OR B) AND NOT(A AND B): "either one" and "not both".' },
     { ja: 'OR(A,B) と AND(A,B) を作り、AND を NOT し、その2つを AND する。', en: 'Build OR(A,B) and AND(A,B); NOT the AND; then AND those two.' },
+  ],
+  nor: [
+    { ja: 'OR の出力を反転すれば NOR。作った OR と NOT を並べるだけ。', en: 'NOR is OR, inverted. Just chain your OR and NOT chips.' },
+  ],
+  xnor: [
+    { ja: 'XOR は「違うとき1」。その出力を NOT すれば「同じとき1」になる。', en: 'XOR is "differ"; NOT its output to get "equal".' },
   ],
   hadd: [
     { ja: '目標の真理値表をよく見て。S（和）の列と C（繰り上がり）の列は、それぞれどのゲートの形？', en: 'Study the target table. The S (sum) column and the C (carry) column each match which gate?' },

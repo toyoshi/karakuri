@@ -108,7 +108,13 @@
     <button class="tool" class:active={game.tool.type === 'delete'} onclick={() => { game.tool = { type: 'delete' }; }}>
       <span class="ti">⌫</span>{t('erase')}
     </button>
+    <button class="tool" class:active={game.tool.type === 'select'} onclick={() => { game.tool = { type: 'select' }; }}>
+      <span class="ti">▦</span>{L('選択', 'Select')}
+    </button>
   </div>
+  {#if game.tool.type === 'select'}
+    <p class="tip">{L('ドラッグで範囲選択。選択をドラッグで移動。⌘/Ctrl+C コピー・V 貼り付け・Delete 削除。', 'Drag to box-select. Drag a selected part to move the group. ⌘/Ctrl+C copy, V paste, Delete remove.')}</p>
+  {/if}
 
   <p class="tip">{t('wireTip')}</p>
 </div>

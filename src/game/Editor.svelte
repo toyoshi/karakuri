@@ -12,6 +12,8 @@
   let hover = $state<string | null>(null);
   let drag = $state<null | { id: string; offx: number; offy: number; moved: boolean }>(null);
   let pending = $state<null | { ref: PinRef; x: number; y: number; dragging: boolean }>(null);
+  let box = $state<null | { x0: number; y0: number; x1: number; y1: number }>(null);   // box-select (grid cells)
+  let group = $state<null | { lastGX: number; lastGY: number }>(null);                  // moving the selection
 
   const lv = $derived(game.level);
   const px = $derived(gridPx(lv));
@@ -47,6 +49,12 @@
     const p = toSvg(e);
     mouse = { x: p.x, y: p.y, in: p.x >= 0 && p.y >= 0 && p.x < px.w && p.y < px.h };
     if (wrapEl) { const r = wrapEl.getBoundingClientRect(); cursor = { cx: e.clientX - r.left, cy: e.clientY - r.top }; }
+    if (box) { box.x1 = Math.floor(p.x / CELL); box.y1 = Math.floor(p.y / CELL); game.selectRect(box.x0, box.y0, box.x1, box.y1); return; }
+    if (group) {
+      const gx = Math.floor(p.x / CELL), gy = Math.floor(p.y / CELL);
+      if (gx !== group.lastGX || gy !== group.lastGY) { game.moveSelection(gx - group.lastGX, gy - group.lastGY); group.lastGX = gx; group.lastGY = gy; }
+      return;
+    }
     if (pending) {
       if (!pending.dragging && (p.x - pending.x) ** 2 + (p.y - pending.y) ** 2 > 64) {
         pending.dragging = true; game.wiring = pending.ref;
@@ -61,6 +69,8 @@
   }
   function onUp(e: PointerEvent) {
     try { svgEl.releasePointerCapture(e.pointerId); } catch {}
+    if (box) { box = null; return; }
+    if (group) { group = null; return; }
     if (pending) {
       const { ref, dragging } = pending; pending = null;
       if (dragging) {
@@ -78,8 +88,15 @@
       if (!d.moved) { const inst = byId.get(d.id); if (inst && game.tool.type === 'delete') game.deleteInstance(inst.id); }
     }
   }
+  function bgDown(e: PointerEvent) {
+    if (game.tool.type !== 'select') return;
+    const p = toSvg(e); const gx = Math.floor(p.x / CELL), gy = Math.floor(p.y / CELL);
+    box = { x0: gx, y0: gy, x1: gx, y1: gy };
+    game.clearSelection();
+    try { svgEl.setPointerCapture(e.pointerId); } catch {}
+  }
   function onBgClick(e: MouseEvent) {
-    if (drag || pending) return;
+    if (drag || pending || box || group) return;
     if (game.tool.type === 'place') {
       const p = toSvg(e);
       game.placeAt(Math.floor(p.x / CELL), Math.floor(p.y / CELL));
@@ -88,9 +105,25 @@
     // a near-miss should not destroy your work. Cancel with Esc or by
     // clicking the start pin again.
   }
-  function onKey(e: KeyboardEvent) { if (e.key === 'Escape') { game.clearWiring(); pending = null; } }
+  function onKey(e: KeyboardEvent) {
+    if (e.target && (e.target as HTMLElement).tagName === 'INPUT') return;
+    if (e.key === 'Escape') { game.clearWiring(); pending = null; box = null; group = null; game.clearSelection(); return; }
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && (e.key === 'c' || e.key === 'C')) { game.copySelection(); e.preventDefault(); }
+    else if (mod && (e.key === 'v' || e.key === 'V')) { game.paste(); e.preventDefault(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && game.selection.size) { game.deleteSelection(); e.preventDefault(); }
+  }
 
   function bodyDown(e: PointerEvent, inst: Instance) {
+    if (game.tool.type === 'select') {
+      if (inst.locked) return;
+      e.stopPropagation();
+      if (!game.selection.has(inst.id)) game.selection = new Set([inst.id]);
+      const p = toSvg(e);
+      group = { lastGX: Math.floor(p.x / CELL), lastGY: Math.floor(p.y / CELL) };
+      try { svgEl.setPointerCapture(e.pointerId); } catch {}
+      return;
+    }
     if (!movable(inst.kind)) return;
     if (game.tool.type === 'place') return;
     e.stopPropagation();
@@ -174,8 +207,8 @@
 
 <div class="editor-wrap" bind:this={wrapEl}>
   <svg bind:this={svgEl} viewBox="0 0 {px.w} {px.h}" preserveAspectRatio="xMidYMid meet"
-       onpointermove={onMove} onpointerup={onUp} onclick={onBgClick}
-       class:placing={game.tool.type === 'place'} class:deleting={game.tool.type === 'delete'}
+       onpointerdown={bgDown} onpointermove={onMove} onpointerup={onUp} onclick={onBgClick}
+       class:placing={game.tool.type === 'place'} class:deleting={game.tool.type === 'delete'} class:selecting={game.tool.type === 'select'}
        role="application" aria-label="回路エディタ">
     <g class="grid">
       {#each Array(lv.cols + 1) as _, c}<line x1={c * CELL} y1="0" x2={c * CELL} y2={px.h} />{/each}
@@ -200,6 +233,12 @@
       <line class="wire-ghost" x1={wp.x} y1={wp.y} x2={mouse.x} y2={mouse.y} />
     {/if}
 
+    {#if box}
+      <rect class="selbox"
+        x={Math.min(box.x0, box.x1) * CELL} y={Math.min(box.y0, box.y1) * CELL}
+        width={(Math.abs(box.x1 - box.x0) + 1) * CELL} height={(Math.abs(box.y1 - box.y0) + 1) * CELL} />
+    {/if}
+
     {#if game.tool.type === 'place' && ghostCell}
       <g class="ghost" class:blocked={!cellFree(ghostCell.x, ghostCell.y)}>
         <rect x={ghostCell.x * CELL + 9} y={ghostCell.y * CELL + 9} width={CELL - 18} height={CELL - 18} rx="10" />
@@ -210,7 +249,7 @@
     {#each insts as inst (inst.id)}
       {@const h = cellH(inst, game.chipLib)}
       {@const x = inst.x ?? 0}{@const y = inst.y ?? 0}{@const pad = 9}
-      <g class="comp k-{inst.kind}" class:locked={inst.locked} class:dragging={drag?.id === inst.id}
+      <g class="comp k-{inst.kind}" class:locked={inst.locked} class:dragging={drag?.id === inst.id} class:selected={game.selection.has(inst.id)}
          onpointerdown={(e) => bodyDown(e, inst)}
          onpointerenter={() => (hover = inst.id)}
          onpointerleave={() => { if (hover === inst.id) hover = null; }}
@@ -288,6 +327,10 @@
   svg { width: 100%; height: 100%; touch-action: none; }
   svg.placing { cursor: copy; }
   svg.deleting { cursor: not-allowed; }
+  svg.selecting { cursor: crosshair; }
+  .selbox { fill: rgba(216,166,87,0.10); stroke: var(--brass); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .comp.selected .body, .comp.selected .dff, .comp.selected .tr, .comp.selected .rail { stroke: var(--brass-bright) !important; }
+  .comp.selected { filter: drop-shadow(0 0 4px var(--brass-glow)); }
 
   .grid line { stroke: var(--line); stroke-width: 1; }
 

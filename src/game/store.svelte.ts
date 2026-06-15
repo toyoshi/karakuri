@@ -25,6 +25,7 @@ const LS_BESTD = 'karakuri.bestdelay.v1';
 export type Tool =
   | { type: 'wire' }
   | { type: 'delete' }
+  | { type: 'select' }
   | { type: 'place'; item: PaletteItem };
 
 export type Lang = 'ja' | 'en';
@@ -131,6 +132,7 @@ export class Game {
     this.solved = false;
     this.showWin = false;
     this.rank = null;
+    this.selection = new Set();
     this.lastVerify = null;
     this.message = null;
     this.lastRecord = null;
@@ -202,6 +204,63 @@ export class Game {
   }
 
   clearWiring() { this.wiring = null; }
+
+  /* ---------- selection / clipboard (reduce wiring tedium) ---------- */
+  selection = $state<Set<string>>(new Set());
+  private clipboard: { instances: Instance[]; wires: Wire[] } | null = null;
+
+  clearSelection() { if (this.selection.size) this.selection = new Set(); }
+  selectRect(gx0: number, gy0: number, gx1: number, gy1: number) {
+    const x0 = Math.min(gx0, gx1), x1 = Math.max(gx0, gx1), y0 = Math.min(gy0, gy1), y1 = Math.max(gy0, gy1);
+    const sel = new Set<string>();
+    for (const i of this.circuit.instances) {
+      if (i.locked) continue;
+      const x = i.x ?? 0, y = i.y ?? 0;
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1) sel.add(i.id);
+    }
+    this.selection = sel;
+  }
+  copySelection() {
+    const ids = this.selection;
+    if (!ids.size) return;
+    const instances = this.circuit.instances.filter(i => ids.has(i.id)).map(i => ({ ...i }));
+    const wires = this.circuit.wires.filter(w => ids.has(w.a.inst) && ids.has(w.b.inst)).map(w => ({ a: { ...w.a }, b: { ...w.b } }));
+    this.clipboard = { instances, wires };
+  }
+  paste(dgx = 2, dgy = 2) {
+    if (!this.clipboard) return;
+    const idMap = new Map<string, string>();
+    const fresh: Instance[] = [];
+    for (const i of this.clipboard.instances) {
+      const nid = uid(); idMap.set(i.id, nid);
+      fresh.push({ ...i, id: nid, x: (i.x ?? 0) + dgx, y: (i.y ?? 0) + dgy, locked: false });
+    }
+    // resolve overlaps by nudging the whole batch down until clear (best effort)
+    const occupied = new Set(this.circuit.instances.map(i => (i.x ?? 0) + ',' + (i.y ?? 0)));
+    let guard = 0;
+    while (fresh.some(i => occupied.has((i.x ?? 0) + ',' + (i.y ?? 0))) && guard++ < 12) {
+      for (const i of fresh) i.y = (i.y ?? 0) + 1;
+    }
+    const newWires: Wire[] = this.clipboard.wires.map(w => ({ a: { inst: idMap.get(w.a.inst)!, pin: w.a.pin }, b: { inst: idMap.get(w.b.inst)!, pin: w.b.pin } }));
+    this.circuit.instances.push(...fresh);
+    this.circuit.wires.push(...newWires);
+    this.selection = new Set(fresh.map(i => i.id));
+    this.touch();
+  }
+  deleteSelection() {
+    const ids = this.selection;
+    if (!ids.size) return;
+    this.circuit.instances = this.circuit.instances.filter(i => i.locked || !ids.has(i.id));
+    this.circuit.wires = this.circuit.wires.filter(w => !ids.has(w.a.inst) && !ids.has(w.b.inst));
+    this.selection = new Set();
+    this.touch();
+  }
+  moveSelection(dgx: number, dgy: number) {
+    const ids = this.selection;
+    if (!ids.size) return;
+    for (const i of this.circuit.instances) if (ids.has(i.id)) { i.x = (i.x ?? 0) + dgx; i.y = (i.y ?? 0) + dgy; }
+    this.circuit = { ...this.circuit };
+  }
 
   /** remove everything the player placed (keep the locked interface I/O) */
   clearCircuit() {
