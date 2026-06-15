@@ -10,6 +10,7 @@ import type { Circuit, Instance, Wire, ChipDef, ChipLib, PinRef } from '../sim/c
 import { compile } from '../sim/circuit';
 import { buildSwitch, runSwitch, verifySwitch } from '../sim/switchlevel';
 import { verifyCombinational, verifySequential, truthTable } from '../sim/verify';
+import type { CardData } from './sharecard';
 import { LEVELS, initialCircuit, type Level, type PaletteItem } from './levels';
 import { pinKey } from './layout';
 
@@ -61,6 +62,7 @@ export class Game {
   lang = $state<Lang>((localStorage.getItem(LS_LANG) as Lang) || 'ja');
   message = $state<{ text: string; kind: 'ok' | 'err' | 'info' } | null>(null);
   solved = $state(false);
+  showWin = $state(false);
   lastVerify = $state<ReturnType<typeof verifyCombinational> | null>(null);
 
   // persistent gate-level sim so feedback circuits actually hold state as you poke them
@@ -123,6 +125,7 @@ export class Game {
     this.tool = { type: 'wire' };
     this.wiring = null;
     this.solved = false;
+    this.showWin = false;
     this.lastVerify = null;
     this.message = null;
     this.lastRecord = null;
@@ -229,7 +232,33 @@ export class Game {
     const what = lv.produces ? (ja ? pname + ' を作った' : 'built ' + pname) : (ja ? '完成' : 'done');
     const tags = [optimal ? (ja ? '★最小達成' : '★ optimal') : '', rec.gate ? (ja ? '🏆自己ベスト更新' : '🏆 new best') : ''].filter(Boolean).join(' · ');
     this.message = { text: (ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`) + (tags ? '  ' + tags : ''), kind: 'ok' };
+    this.showWin = true;
     return true;
+  }
+
+  /** data for the share card / win modal (single source of truth) */
+  cardData(): CardData {
+    const lv = this.level, ja = this.lang === 'ja';
+    const n = this.best[lv.id] ?? this.cost;
+    const table = (!lv.sequential && !lv.sandbox && lv.spec)
+      ? { inputs: lv.inputs.map(p => p.name), outputs: lv.outputs.map(p => p.name), rows: truthTable(lv.inputs.map(p => p.name), lv.spec).map(r => ({ in: r.in, out: r.expected })) }
+      : null;
+    return {
+      title: ja ? lv.title : lv.titleEn,
+      unit: this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : 'NAND',
+      cost: n, par: lv.par, delay: this.substrate === 'switch' ? null : (this.bestDelay[lv.id] ?? this.live.ticks),
+      lang: this.lang, optimal: n <= lv.par, totalNands: this.totalNands, stars: this.starCount,
+      cleared: `${this.clearedCount}/${LEVELS.length}`, table,
+      url: location.origin + location.pathname + '#' + lv.id,
+    };
+  }
+  shareText(): string {
+    const lv = this.level, ja = this.lang === 'ja';
+    const n = this.best[lv.id] ?? this.cost;
+    const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : 'NAND';
+    return ja
+      ? `「${lv.title}」を ${unit} ${n}個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`
+      : `Built "${lv.titleEn}" from ${n} ${unit} on Karakuri — build a computer from a single NAND.`;
   }
 
   /** aggregate stats for the "compete on totals" loop */

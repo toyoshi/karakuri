@@ -7,6 +7,7 @@
   import Palette from './Palette.svelte';
   import GoalPanel from './GoalPanel.svelte';
   import IntroModal from './IntroModal.svelte';
+  import WinModal from './WinModal.svelte';
 
   let showIntro = $state(false);
 
@@ -61,6 +62,7 @@
 </header>
 
 {#if showIntro}<IntroModal onclose={closeIntro} />{/if}
+{#if game.showWin}<WinModal />{/if}
 
 <main class="gbody">
   <aside class="rail rail--left"><Palette /></aside>

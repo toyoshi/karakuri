@@ -60,23 +60,7 @@
   async function share() {
     if (sharing) return; sharing = true;
     try {
-      const url = location.origin + location.pathname + '#' + lv.id;
-      const n = game.best[lv.id] ?? cost;
-      const unit = game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : 'NAND';
-      const txt = L(
-        `「${lv.title}」を ${unit} ${n}個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`,
-        `Built "${lv.titleEn}" from ${n} ${unit} on Karakuri — build a computer from a single NAND.`
-      );
-      const table = (!lv.sequential && rows.length)
-        ? { inputs: lv.inputs.map(p => p.name), outputs: outNames, rows: rows.map(r => ({ in: r.in, out: r.expected })) }
-        : null;
-      const res = await shareCard({
-        title: L(lv.title, lv.titleEn), unit, cost: n, par: lv.par,
-        delay: game.substrate === 'switch' ? null : (game.bestDelay[lv.id] ?? game.live.ticks),
-        lang: game.lang, optimal: n <= lv.par,
-        totalNands: game.totalNands, stars: game.starCount, cleared: `${game.clearedCount}/${game.totalLevels}`,
-        table, url,
-      }, txt);
+      const res = await shareCard(game.cardData(), game.shareText());
       game.message = { text: res === 'shared' ? L('シェアしました', 'Shared!') : L('シェア画像を保存しました（SNSに貼れます）', 'Share image saved — post it anywhere'), kind: 'ok' };
     } catch {
       game.message = { text: L('シェアに失敗しました', 'Share failed'), kind: 'err' };

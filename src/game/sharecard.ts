@@ -146,6 +146,22 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   return await new Promise<Blob>((resolve) => cv.toBlob(b => resolve(b!), 'image/png'));
 }
 
+/** Share an already-rendered card blob: native file-share where possible, else download + copy text. */
+export async function dispatchShare(blob: Blob, text: string, url: string): Promise<'shared' | 'downloaded'> {
+  const file = new File([blob], 'karakuri.png', { type: 'image/png' });
+  const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
+  if (nav.canShare && nav.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text, url } as ShareData); return 'shared'; } catch { /* fall through */ }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'karakuri.png';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  try { await navigator.clipboard.writeText(text + ' ' + url); } catch { /* ignore */ }
+  return 'downloaded';
+}
+
 /** Share the card: native file-share where possible, else download + copy text. */
 export async function shareCard(d: CardData, text: string): Promise<'shared' | 'downloaded'> {
   const blob = await makeShareCard(d);
