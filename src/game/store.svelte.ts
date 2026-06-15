@@ -21,6 +21,7 @@ const LS_DONE = 'karakuri.completed.v1';
 const LS_LANG = 'karakuri.lang';
 const LS_BEST = 'karakuri.best.v1';
 const LS_BESTD = 'karakuri.bestdelay.v1';
+const LS_CIRCUITS = 'karakuri.circuits.v1';
 
 export type Tool =
   | { type: 'wire' }
@@ -50,6 +51,9 @@ function loadBest(): Record<string, number> {
 function loadBestD(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(LS_BESTD) || '{}'); } catch { return {}; }
 }
+function loadCircuits(): Record<string, Circuit> {
+  try { return JSON.parse(localStorage.getItem(LS_CIRCUITS) || '{}'); } catch { return {}; }
+}
 
 export class Game {
   circuit = $state<Circuit>({ instances: [], wires: [] });
@@ -68,6 +72,9 @@ export class Game {
   showWin = $state(false);
   rank = $state<Dist | null>(null);  // leaderboard standing for the current solve (null = no API / not yet)
   lastVerify = $state<ReturnType<typeof verifyCombinational> | null>(null);
+
+  // every level's in-progress circuit, kept so leaving and returning never loses your work
+  private circuits: Record<string, Circuit> = loadCircuits();
 
   // persistent gate-level sim so feedback circuits actually hold state as you poke them
   private gateSim: Simulator | null = null;
@@ -119,17 +126,39 @@ export class Game {
     return this.live.vals.get(pinKey(instId, pin));
   }
 
+  /* ---------- per-level persistence ---------- */
+  /** stash the circuit of the level we're leaving so it's there when we come back */
+  private saveCircuit() {
+    const lv = this.level;
+    if (lv.demo) return;                       // demo is fixed/prewired — nothing to save
+    if (!this.circuit.instances.length) return; // nothing loaded yet (initial boot)
+    this.circuits[lv.id] = $state.snapshot(this.circuit) as Circuit;
+    try { localStorage.setItem(LS_CIRCUITS, JSON.stringify(this.circuits)); } catch {}
+  }
+  /** rebuild a saved circuit, re-deriving the locked interface I/O from the current level def
+      (so it stays correct even if the level's I/O or grid changes between versions) */
+  private reviveCircuit(saved: Circuit, lv: Level): Circuit {
+    const base = initialCircuit(lv);                       // locked I/O (+ any prewired)
+    const lockedIds = new Set(base.instances.map(i => i.id));
+    const userInsts = saved.instances.filter(i => !lockedIds.has(i.id) && !i.locked);
+    const ids = new Set([...lockedIds, ...userInsts.map(i => i.id)]);
+    const wires = saved.wires.filter(w => ids.has(w.a.inst) && ids.has(w.b.inst));
+    return { instances: [...base.instances, ...userInsts], wires };
+  }
+
   /* ---------- lifecycle ---------- */
   loadLevel(idx: number) {
     idx = Math.max(0, Math.min(LEVELS.length - 1, idx));
+    this.saveCircuit();                          // preserve the level we're leaving
     this.levelIdx = idx;
     const lv = LEVELS[idx];
-    this.circuit = initialCircuit(lv);
+    const saved = this.circuits[lv.id];
+    this.circuit = saved ? this.reviveCircuit(saved, lv) : initialCircuit(lv);
     // inputs usually start ON so wires show life; the demo starts OFF so pressing them lights the lamp
     this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, (lv.demo ? 0 : 1) as Bit]));
     this.tool = { type: 'wire' };
     this.wiring = null;
-    this.solved = false;
+    this.solved = this.completed.has(lv.id);  // returning to a cleared level: keep it marked solved
     this.showWin = false;
     this.rank = null;
     this.selection = new Set();
@@ -142,7 +171,7 @@ export class Game {
   setLang(l: Lang) { this.lang = l; localStorage.setItem(LS_LANG, l); }
 
   /* ---------- editing ---------- */
-  private touch() { this.circuit = { ...this.circuit }; this.syncLive(); } // poke reactivity + rebuild sim
+  private touch() { this.circuit = { ...this.circuit }; this.syncLive(); this.saveCircuit(); } // poke reactivity + rebuild sim + persist
 
   placeAt(gx: number, gy: number) {
     if (this.tool.type !== 'place') return;
@@ -260,6 +289,7 @@ export class Game {
     if (!ids.size) return;
     for (const i of this.circuit.instances) if (ids.has(i.id)) { i.x = (i.x ?? 0) + dgx; i.y = (i.y ?? 0) + dgy; }
     this.circuit = { ...this.circuit };
+    this.saveCircuit();
   }
 
   /** remove everything the player placed (keep the locked interface I/O) */
@@ -414,8 +444,9 @@ export class Game {
   }
 
   resetProgress() {
-    this.chipLib = new Map(); this.completed = new Set(); this.best = {}; this.bestDelay = {};
-    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST); localStorage.removeItem(LS_BESTD);
+    this.chipLib = new Map(); this.completed = new Set(); this.best = {}; this.bestDelay = {}; this.circuits = {};
+    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST); localStorage.removeItem(LS_BESTD); localStorage.removeItem(LS_CIRCUITS);
+    this.circuit = { instances: [], wires: [] };  // so loadLevel's save-on-leave is a no-op
     this.loadLevel(0);
   }
 }
