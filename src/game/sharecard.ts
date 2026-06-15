@@ -23,11 +23,56 @@ export interface CardData {
   stars: number;
   cleared: string;        // e.g. "8/15"
   table: { inputs: string[]; outputs: string[]; rows: { in: Record<string, Bit>; out: Record<string, Bit> }[] } | null;
+  /** the player's actual circuit, in CELL pixel coords, for the "look what I built" panel */
+  circuit?: {
+    w: number; h: number;
+    nodes: { x: number; y: number; cw: number; ch: number; kind: string; label: string; on?: boolean }[];
+    wires: { ax: number; ay: number; bx: number; by: number; lit: boolean }[];
+  } | null;
   url: string;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+}
+
+/** draw the player's actual circuit, fit into a panel — the "look what I built" flex */
+function drawCircuitInto(ctx: CanvasRenderingContext2D, px: number, py: number, pw: number, ph: number, circ: NonNullable<CardData['circuit']>, label: string) {
+  roundRect(ctx, px, py, pw, ph, 16); ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.fill(); ctx.stroke();
+  ctx.fillStyle = C.muted; ctx.font = `500 18px "JetBrains Mono", monospace`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(label, px + 26, py + 36);
+  const ix = px + 24, iy = py + 54, iw = pw - 48, ih = ph - 78;
+  const s = Math.min(iw / (circ.w || 1), ih / (circ.h || 1));
+  const ox = ix + (iw - circ.w * s) / 2, oy = iy + (ih - circ.h * s) / 2;
+  const X = (x: number) => ox + x * s, Y = (y: number) => oy + y * s;
+  ctx.save();
+  // wires
+  for (const w of circ.wires) {
+    const dx = Math.max(10, Math.abs(w.bx - w.ax) * 0.5) * s;
+    ctx.beginPath();
+    ctx.moveTo(X(w.ax), Y(w.ay));
+    ctx.bezierCurveTo(X(w.ax) + dx, Y(w.ay), X(w.bx) - dx, Y(w.by), X(w.bx), Y(w.by));
+    ctx.strokeStyle = w.lit ? C.signal : C.ink2; ctx.lineWidth = Math.max(1.5, 3 * s); ctx.lineCap = 'round'; ctx.stroke();
+  }
+  // nodes
+  for (const n of circ.nodes) {
+    const x = X(n.x) + 3 * s, y = Y(n.y) + 3 * s, w = n.cw * s - 6 * s, h = n.ch * s - 6 * s;
+    let fill = '#1b2330', stroke = C.muted;
+    if (n.kind === 'chip') { fill = '#1a2030'; stroke = C.verd; }
+    else if (n.kind === 'dff') { fill = '#181f2e'; stroke = C.verd; }
+    else if (n.kind === 'input') { fill = n.on ? C.brass : '#221b10'; stroke = C.brass; }
+    else if (n.kind === 'output') { fill = n.on ? C.signal : '#16202b'; stroke = n.on ? C.signal : C.muted; }
+    else if (n.kind === 'high' || n.kind === 'low') { fill = '#1c2330'; stroke = C.brass; }
+    if (n.kind === 'output') { ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2, 0, 6.2832); }
+    else roundRect(ctx, x, y, w, h, 4 * s);
+    ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = Math.max(1, 1.5 * s); ctx.strokeStyle = stroke; ctx.stroke();
+    if (s > 0.42 && n.label) {
+      ctx.fillStyle = n.kind === 'input' && n.on ? '#1a130a' : (n.kind === 'output' && n.on ? '#04121d' : C.paper2);
+      ctx.font = `600 ${Math.round(11 * s + 3)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.label, x + w / 2, y + h / 2);
+    }
+  }
+  ctx.restore(); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 }
 
 export async function makeShareCard(d: CardData): Promise<Blob> {
@@ -117,8 +162,10 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   ctx.fillStyle = C.brass; ctx.font = `400 22px ${MONO}`;
   ctx.fillText(d.url.replace(/^https?:\/\//, ''), pad, H - 44);
 
-  // right: truth table
-  if (d.table && d.table.inputs.length <= 4) {
+  // right panel: the player's actual circuit (preferred), else the truth table
+  if (d.circuit && d.circuit.nodes.length) {
+    drawCircuitInto(ctx, 760, 150, W - 760 - pad, 330, d.circuit, ja ? '君の回路' : 'YOUR CIRCUIT');
+  } else if (d.table && d.table.inputs.length <= 4) {
     const bx = 760, by = 150, bw = W - 760 - pad, bh = 330;
     roundRect(ctx, bx, by, bw, bh, 16); ctx.fillStyle = 'rgba(255,255,255,0.03)'; ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1; ctx.stroke();

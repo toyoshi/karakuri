@@ -7,7 +7,8 @@
 import type { Bit } from '../sim/netlist';
 import { Simulator } from '../sim/netlist';
 import type { Circuit, Instance, Wire, ChipDef, ChipLib, PinRef } from '../sim/circuit';
-import { compile } from '../sim/circuit';
+import { compile, pinsOf } from '../sim/circuit';
+import { CELL, pinXY, cellH } from './layout';
 import { buildSwitch, runSwitch, verifySwitch } from '../sim/switchlevel';
 import { verifyCombinational, verifySequential, truthTable } from '../sim/verify';
 import type { CardData } from './sharecard';
@@ -250,8 +251,48 @@ export class Game {
       cost: n, par: lv.par, delay: this.substrate === 'switch' ? null : (this.bestDelay[lv.id] ?? this.live.ticks),
       lang: this.lang, optimal: n <= lv.par, totalNands: this.totalNands, stars: this.starCount,
       cleared: `${this.clearedCount}/${LEVELS.length}`, table,
+      circuit: this.circuitRender(),
       url: location.origin + location.pathname + '#' + lv.id,
     };
+  }
+
+  /** the player's actual circuit as fit-able render data (CELL pixel coords) for the share card */
+  circuitRender(): CardData['circuit'] {
+    const insts = this.circuit.instances;
+    const vals = this.live.vals;
+    const byId = (id: string) => insts.find(i => i.id === id);
+    const dirOf = (inst: Instance | undefined, pin: string) => (inst ? pinsOf(inst, this.chipLib).find(p => p.name === pin)?.dir : 'io') ?? 'io';
+    const orient = (w: Wire): [PinRef, PinRef] => {
+      const da = dirOf(byId(w.a.inst), w.a.pin), db = dirOf(byId(w.b.inst), w.b.pin);
+      if (da === 'out') return [w.a, w.b]; if (db === 'out') return [w.b, w.a]; if (da === 'in') return [w.b, w.a]; return [w.a, w.b];
+    };
+    const label = (inst: Instance) => {
+      switch (inst.kind) {
+        case 'input': case 'output': return inst.name ?? '';
+        case 'nand': return '&'; case 'dff': return 'DFF'; case 'high': return '1'; case 'low': return '0';
+        case 'nmos': return 'N'; case 'pmos': return 'P';
+        case 'chip': return this.chipLib.get(inst.chipId!)?.glyph ?? '?';
+      }
+    };
+    const nodes = insts.map(inst => {
+      const h = cellH(inst, this.chipLib);
+      const on = inst.kind === 'input' ? vals.get(inst.id + ':y') === 1 : inst.kind === 'output' ? vals.get(inst.id + ':x') === 1 : false;
+      return { x: (inst.x ?? 0) * CELL, y: (inst.y ?? 0) * CELL, cw: CELL, ch: h * CELL, kind: inst.kind, label: label(inst), on };
+    });
+    const wires = this.circuit.wires.map(w => {
+      const [fa, fb] = orient(w);
+      const a = pinXY(byId(fa.inst)!, this.chipLib, fa.pin), b = pinXY(byId(fb.inst)!, this.chipLib, fb.pin);
+      const lit = (vals.get(fa.inst + ':' + fa.pin) ?? vals.get(fb.inst + ':' + fb.pin)) === 1;
+      return { ax: a.x, ay: a.y, bx: b.x, by: b.y, lit };
+    });
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const n of nodes) { minX = Math.min(minX, n.x); minY = Math.min(minY, n.y); maxX = Math.max(maxX, n.x + n.cw); maxY = Math.max(maxY, n.y + n.ch); }
+    for (const w of wires) { minX = Math.min(minX, w.ax, w.bx); minY = Math.min(minY, w.ay, w.by); maxX = Math.max(maxX, w.ax, w.bx); maxY = Math.max(maxY, w.ay, w.by); }
+    if (!isFinite(minX)) return { w: 1, h: 1, nodes: [], wires: [] };
+    const P = 14;
+    for (const n of nodes) { n.x -= minX - P; n.y -= minY - P; }
+    for (const w of wires) { w.ax -= minX - P; w.ay -= minY - P; w.bx -= minX - P; w.by -= minY - P; }
+    return { w: maxX - minX + P * 2, h: maxY - minY + P * 2, nodes, wires };
   }
   shareText(): string {
     const lv = this.level, ja = this.lang === 'ja';
