@@ -1,6 +1,7 @@
 <script lang="ts">
   import { game } from './store.svelte';
   import { makeShareCard, dispatchShare } from './sharecard';
+  import { recordClip, shareClip, clipSupported } from './clipanim';
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   const data = game.cardData();      // snapshot at the moment of clearing
@@ -24,6 +25,17 @@
     sharing = false;
     game.message = { text: r === 'shared' ? L('シェアしました', 'Shared!') : L('シェア画像を保存しました（SNSに貼れます）', 'Share image saved — post it anywhere'), kind: 'ok' };
   }
+  const canClip = clipSupported();
+  let recording = $state(false);
+  async function shareVideo() {
+    if (recording || !data.circuit) return;
+    recording = true;
+    const blob = await recordClip(data.circuit, `${data.title} · ${data.cost} ${data.unit} · Karakuri`);
+    recording = false;
+    if (!blob) { game.message = { text: L('この端末は動画書き出しに未対応。画像でどうぞ。', 'Video export not supported here — use the image.'), kind: 'err' }; return; }
+    const r = await shareClip(blob, text, data.url);
+    game.message = { text: r === 'shared' ? L('動画をシェアしました', 'Shared the clip!') : L('動画を保存しました（SNSに貼れます）', 'Clip saved — post it anywhere'), kind: 'ok' };
+  }
   const isLast = $derived(game.levelIdx >= game.totalLevels - 1);
   function next() { game.loadLevel(game.levelIdx + 1); }
   function close() { game.showWin = false; }
@@ -45,7 +57,8 @@
     </div>
 
     <div class="btns">
-      <button class="btn" onclick={share} disabled={!imgUrl || sharing}>↗ {L('シェア', 'Share')}</button>
+      <button class="btn" onclick={share} disabled={!imgUrl || sharing}>↗ {L('画像', 'Image')}</button>
+      {#if canClip}<button class="btn" onclick={shareVideo} disabled={recording}>{recording ? '…' : '🎬 ' + L('動画', 'Video')}</button>{/if}
       {#if !isLast}<button class="btn btn--ghost" onclick={next}>{L('次へ', 'Next')} →</button>{/if}
       <button class="btn btn--ghost" onclick={close}>{L('閉じる', 'Close')}</button>
     </div>
