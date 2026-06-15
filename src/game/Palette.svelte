@@ -27,11 +27,16 @@
     if (kind === 'dff') return L('DFF（フリップフロップ）', 'DFF (flip-flop)');
     return chipName(game.chipLib.get(chipId!)) || chipId!;
   }
-  const items = $derived<PaletteItem[]>(
-    lv.sandbox
-      ? [...lv.palette, ...[...game.chipLib.values()].map((c): PaletteItem => ({ kind: 'chip', chipId: c.id }))]
-      : lv.palette.filter(it => it.kind !== 'chip' || game.chipLib.has(it.chipId!))
-  );
+  // You can use ONLY what you've made so far — but ALL of it, not just the
+  // chips this level happens to list. (Players who never build advanced parts
+  // and solve everything from NAND are perfectly fine.)
+  const items = $derived.by((): PaletteItem[] => {
+    if (lv.demo) return [];
+    const earned = [...game.chipLib.values()].map((c): PaletteItem => ({ kind: 'chip', chipId: c.id }));
+    if (lv.substrate === 'switch') return lv.palette;           // transistor primitives only
+    const prims = lv.palette.filter(it => it.kind !== 'chip');  // nand / dff / power / ground this level provides
+    return [...prims, ...earned];
+  });
 
   /* ---------- (i) preview: compute a real truth table by simulating ---------- */
   let preview = $state<null | { item: PaletteItem; top: number; left: number }>(null);

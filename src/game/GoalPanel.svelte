@@ -169,12 +169,14 @@
       <button class="btn" onclick={() => game.loadLevel(game.levelIdx + 1)}>{L('自分で作ってみる', 'Build one yourself')} →</button>
     {:else if lv.sandbox}
       <button class="btn btn--ghost" onclick={() => game.clearCircuit()}>{L('全部消す', 'Clear all')}</button>
-    {:else if !game.solved}
-      <button class="btn" onclick={() => game.verify()}>{t('verify')}</button>
     {:else}
-      <button class="btn" onclick={share}>↗ {t('share')}</button>
-      {#if game.levelIdx < game.totalLevels - 1}
-        <button class="btn btn--ghost" onclick={() => game.loadLevel(game.levelIdx + 1)}>{t('next')} →</button>
+      <!-- verify stays available after clearing, so you can keep optimising for a better score -->
+      <button class="btn" onclick={() => game.verify()}>{game.solved ? L('再検証', 'Re-verify') : t('verify')}</button>
+      {#if game.solved}
+        <button class="btn btn--ghost" onclick={share}>↗ {t('share')}</button>
+        {#if game.levelIdx < game.totalLevels - 1}
+          <button class="btn btn--ghost" onclick={() => game.loadLevel(game.levelIdx + 1)}>{t('next')} →</button>
+        {/if}
       {/if}
     {/if}
   </div>
