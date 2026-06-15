@@ -1,0 +1,12 @@
+{
+  "name": "karakuri-scores",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Tiny score/leaderboard API for Karakuri (gate-count distribution).",
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "pg": "^8.13.1"
+  }
+}

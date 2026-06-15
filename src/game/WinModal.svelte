@@ -2,6 +2,7 @@
   import { game } from './store.svelte';
   import { makeShareCard, dispatchShare } from './sharecard';
   import { recordClip, shareClip, clipSupported } from './clipanim';
+  import { rankText } from './leaderboard';
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   const data = game.cardData();      // snapshot at the moment of clearing
@@ -56,6 +57,10 @@
       {#if imgUrl}<img src={imgUrl} alt={L('シェアカード', 'share card')} />{:else}<div class="loading">…</div>{/if}
     </div>
 
+    {#if game.rank && game.rank.n > 1}
+      <div class="rank">🌐 {rankText(game.rank, game.lang)}</div>
+    {/if}
+
     <div class="btns">
       <button class="btn" onclick={share} disabled={!imgUrl || sharing}>↗ {L('画像', 'Image')}</button>
       {#if canClip}<button class="btn" onclick={shareVideo} disabled={recording}>{recording ? '…' : '🎬 ' + L('動画', 'Video')}</button>{/if}
@@ -86,6 +91,7 @@
   .preview img { width: 100%; height: 100%; display: block; }
   .loading { width: 100%; height: 100%; display: grid; place-items: center; color: var(--muted); font-family: var(--font-mono); }
 
+  .rank { margin-top: -4px; margin-bottom: var(--sp-3); text-align: center; font-family: var(--font-mono); font-size: var(--step-0); color: var(--brass-bright); }
   .btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
   .hint { margin-top: var(--sp-3); font-size: 0.74rem; color: var(--muted); line-height: 1.5; }
 </style>
