@@ -373,6 +373,73 @@ export const LEVELS: Level[] = [
   },
 ];
 
+/** Progressive hints per level: concept → which parts → how to wire.
+    Revealed one at a time, so players who want to think still can. */
+export const HINTS: Record<string, { ja: string; en: string }[]> = {
+  not: [
+    { ja: 'NANDは「両方が1のときだけ0」。入力が1本しか無いとき、両方の入力に同じ信号を入れたらどうなる？', en: 'NAND is 0 only when both inputs are 1. With one signal, what if you feed it into both inputs?' },
+    { ja: 'X を NAND の a と b の両方へ繋ぐ。NAND(X,X) は X の反転になる。', en: 'Wire X into both a and b of the NAND. NAND(X,X) inverts X.' },
+  ],
+  and: [
+    { ja: 'AND は「NAND してから反転」。NANDの出力をひっくり返せば？', en: 'AND = NAND, then invert. Flip the NAND output.' },
+    { ja: 'A,B を NAND に入れ、その出力を NOT チップに通して Y へ。', en: 'Feed A,B into a NAND, pass its output through your NOT chip to Y.' },
+  ],
+  or: [
+    { ja: 'ド・モルガンの法則：A∨B = ¬(¬A ∧ ¬B)。まず各入力を反転してみよう。', en: "De Morgan: A∨B = ¬(¬A ∧ ¬B). Start by inverting each input." },
+    { ja: 'A を NOT、B を NOT、その2つを NAND に入れる。NAND(¬A,¬B) が OR になる。', en: 'NOT A, NOT B, then NAND them: NAND(¬A,¬B) = A OR B.' },
+  ],
+  xor: [
+    { ja: 'XOR は「違うとき1」。目標の真理値表を見て：両方同じなら0、片方だけ1なら1。', en: 'XOR is 1 when they differ. Look at the target table: same → 0, differ → 1.' },
+    { ja: 'XOR =（A∨B）かつ（¬(A∧B)）。「どちらか1」かつ「両方1ではない」。', en: 'XOR = (A OR B) AND NOT(A AND B): "either one" and "not both".' },
+    { ja: 'OR(A,B) と AND(A,B) を作り、AND を NOT し、その2つを AND する。', en: 'Build OR(A,B) and AND(A,B); NOT the AND; then AND those two.' },
+  ],
+  hadd: [
+    { ja: '目標の真理値表をよく見て。S（和）の列と C（繰り上がり）の列は、それぞれどのゲートの形？', en: 'Study the target table. The S (sum) column and the C (carry) column each match which gate?' },
+    { ja: 'S は「A,B が違うとき1」＝XOR。C は「両方1のとき1」＝AND。どちらも作ったチップがある。', en: 'S = "A,B differ" = XOR. C = "both 1" = AND. You built both chips already.' },
+    { ja: 'XORチップに A,B を入れて S へ。ANDチップに A,B を入れて C へ。入力 A,B は両方のチップへ分岐させる。', en: 'XOR(A,B)→S, AND(A,B)→C. Branch A and B into both chips.' },
+  ],
+  fadd: [
+    { ja: '半加算器を2段。まず A,B を半加算（和と繰り上がり）、その和に Cin をもう一度半加算。', en: 'Two half-adders. Half-add A,B; then half-add that sum with Cin.' },
+    { ja: '2つの半加算器の繰り上がり(C)を OR でまとめて Cout。和は2段目の S。', en: 'OR the two half-adders\' carries → Cout. The sum is the 2nd half-adder\'s S.' },
+  ],
+  srlatch: [
+    { ja: 'NAND を2つ、たすき掛けに：片方の出力をもう片方の入力へ戻す。これがフィードバック＝記憶。', en: 'Cross-couple two NANDs: each output feeds the other\'s input. That feedback is memory.' },
+    { ja: 'g1=NAND(S, g2出力)、g2=NAND(R, g1出力)。Q は g1 の出力。S=0でセット、R=0でリセット、両方1で保持。', en: 'g1=NAND(S, g2out), g2=NAND(R, g1out). Q is g1. S=0 sets, R=0 resets, both-1 holds.' },
+  ],
+  dlatch: [
+    { ja: 'SRラッチの前に「書き込み窓」を付ける。E=1のときだけ D が中に入るように。', en: 'Put a write-gate in front of an SR latch so D enters only when E=1.' },
+    { ja: 'S̄=NAND(D,E)、R̄=NAND(¬D,E) を作り、それでSRラッチ(NAND2個)を駆動。E=0なら両方1＝保持。', en: 'Make S̄=NAND(D,E), R̄=NAND(¬D,E) and drive an SR latch with them. E=0 → both 1 → hold.' },
+  ],
+  mux: [
+    { ja: 'Y =（A かつ ¬S）または（B かつ S）。S で2つの AND のどちらが通るかが決まる。', en: 'Y = (A AND ¬S) OR (B AND S). S decides which AND passes.' },
+    { ja: '¬S を作り、AND(A,¬S) と AND(B,S) を作って、その2つを OR する。', en: 'Build ¬S, then AND(A,¬S) and AND(B,S), then OR them.' },
+  ],
+  register: [
+    { ja: 'DFF は毎クロック d を記憶する。「load なら in、さもなくば今の Q」を d に入れたい。何で選ぶ？', en: 'A DFF stores d each clock. You want d = "in if load, else current Q". What picks between them?' },
+    { ja: 'MUX(A=Q, B=in, S=load) の出力を DFF の d へ。DFF の q を出力にし、MUX の A にも戻す。clk は DFF へ。', en: 'MUX(A=Q, B=in, S=load) → DFF.d. DFF.q is the output and also feeds back to MUX.A. clk → DFF.' },
+  ],
+  alu: [
+    { ja: '4つの演算 AND/OR/XOR/NAND を全部計算しておき、op1,op0 でセレクタが1つを選ぶ。', en: 'Compute all four (AND/OR/XOR/NAND), then let op1,op0 select one.' },
+    { ja: 'MUX を3つ：m1=MUX(AND,OR,op0)、m2=MUX(XOR,NAND,op0)、y=MUX(m1,m2,op1)。', en: 'Three MUXes: m1=MUX(AND,OR,op0), m2=MUX(XOR,NAND,op0), y=MUX(m1,m2,op1).' },
+  ],
+  counter: [
+    { ja: 'en=1で反転、en=0で保持。DFF の d に「今の Q XOR en」を戻すとどうなる？', en: 'Toggle when en=1, hold when en=0. What if DFF.d = (current Q) XOR en?' },
+    { ja: 'XOR(Q, en) を DFF の d へ。q を Q にし XOR にも戻す。clk は DFF へ。', en: 'XOR(Q, en) → DFF.d. q is Q and feeds back to the XOR. clk → DFF.' },
+  ],
+  cpu: [
+    { ja: 'ALU の結果を DFF に記憶し、その値をまた ALU の入力 a に戻す「輪」を作る。', en: 'Make a loop: ALU result → DFF, and the stored value back into ALU input a.' },
+    { ja: 'ALU(a=acc, b=in, op0, op1) の y を DFF の d へ。DFF の q を acc 出力かつ ALU の a に。clk は DFF へ。', en: 'ALU(a=acc, b=in, op0, op1).y → DFF.d. DFF.q is acc and feeds ALU.a. clk → DFF.' },
+  ],
+  't-not': [
+    { ja: 'PMOSは0で導通（上から電源1を引く）、NMOSは1で導通（下へ接地0）。X を両方のゲートへ。', en: 'PMOS conducts on 0 (pulls 1 from power above); NMOS on 1 (drains to ground). Feed X to both gates.' },
+    { ja: '電源→PMOS→Y、Y→NMOS→接地。X を両トランジスタのゲートへ。X=0でPMOS ON→Y=1、X=1でNMOS ON→Y=0。', en: 'power→PMOS→Y, Y→NMOS→ground. X to both gates. X=0→PMOS on→Y=1; X=1→NMOS on→Y=0.' },
+  ],
+  't-nand': [
+    { ja: 'PMOS2個を並列で電源→Y、NMOS2個を直列で Y→接地。A,B をゲートへ。', en: 'Two PMOS in parallel (power→Y), two NMOS in series (Y→ground). A,B to the gates.' },
+    { ja: '両方1のときだけ直列のNMOSが繋がり Y=0。どちらかが0ならPMOSが Y=1 に引き上げる。', en: 'Only when both are 1 does the series NMOS connect → Y=0. If either is 0, a PMOS pulls Y=1.' },
+  ],
+};
+
 /** Build the starting circuit for a level: its interface IO, placed and locked. */
 export function initialCircuit(level: Level): Circuit {
   const instances: Instance[] = [];

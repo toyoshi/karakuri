@@ -5,9 +5,13 @@
   import { Simulator, type Bit } from '../sim/netlist';
   import { buildSwitch, runSwitch } from '../sim/switchlevel';
   import { shareCard } from './sharecard';
+  import { HINTS } from './levels';
 
   const lv = $derived(game.level);
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
+  const hints = $derived(HINTS[lv.id] ?? []);
+  let revealed = $state(0);
+  $effect(() => { game.levelIdx; revealed = 0; }); // reset hints on level change
 
   const rows = $derived(
     lv.sequential && lv.steps ? lv.steps.map(s => ({ in: s.in, expected: s.expected }))
@@ -93,6 +97,20 @@
     <span>{L(lv.idea, lv.ideaEn)}</span>
   </div>
 
+  {#if !lv.sandbox && hints.length}
+    <div class="hints">
+      {#each hints.slice(0, revealed) as h, i}
+        <div class="hint"><b>{i + 1}</b><span>{game.lang === 'ja' ? h.ja : h.en}</span></div>
+      {/each}
+      {#if revealed < hints.length}
+        <button class="hintbtn" onclick={() => revealed++}>
+          💡 {revealed === 0 ? L('詰まったら…ヒント', 'Stuck? Get a hint') : L('次のヒント', 'Next hint')}
+          <i>({revealed + 1}/{hints.length})</i>
+        </button>
+      {/if}
+    </div>
+  {/if}
+
   {#if rows.length}
     <div>
       <div class="rail-label">{tableLabel}</div>
@@ -176,6 +194,13 @@
   .idea b { display: block; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--verdigris); margin-bottom: 0.3em; }
   .idea span { color: var(--paper-2); font-size: var(--step--1); line-height: 1.6; }
   .rail-label { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+  .hints { display: flex; flex-direction: column; gap: 8px; }
+  .hint { display: flex; gap: 9px; align-items: flex-start; font-size: var(--step--1); color: var(--paper-2); line-height: 1.55; }
+  .hint b { flex: none; width: 1.5em; height: 1.5em; display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--brass) 18%, var(--ink-700)); color: var(--brass-bright); font-family: var(--font-mono); font-size: 0.72rem; }
+  .hintbtn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; background: transparent; border: 1px dashed var(--brass-deep); color: var(--brass); border-radius: var(--r-full); padding: 5px 13px; cursor: pointer; font-family: inherit; font-size: var(--step--1); transition: background 0.14s, border-color 0.14s; }
+  .hintbtn:hover { background: color-mix(in srgb, var(--brass) 10%, transparent); border-color: var(--brass); }
+  .hintbtn i { color: var(--faint); font-style: normal; font-size: 0.72rem; }
 
   .tt { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.82rem; }
   .tt th { color: var(--muted); font-weight: 500; padding: 3px 6px; font-size: 0.72rem; }
