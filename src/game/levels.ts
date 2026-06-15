@@ -35,6 +35,7 @@ export interface Level {
   steps?: { in: Record<string, Bit>; expected: Record<string, Bit> }[];
   produces?: { id: string; name: string; nameEn?: string; glyph: string };
   par: number;            // reference cost (transistors for switch levels, NANDs for gate levels)
+  sandbox?: boolean;      // free-build: no goal, full palette, fixed toggleable I/O
 }
 
 const COLS = 14, ROWS = 9;
@@ -352,6 +353,23 @@ export const LEVELS: Level[] = [
     palette: [{ kind: 'pmos' }, { kind: 'nmos' }, { kind: 'high' }, { kind: 'low' }],
     spec: (m) => ({ Y: (m.A && m.B ? 0 : 1) as Bit }),
     par: 4,
+  },
+
+  /* ---------- Sandbox — free build for those who want to go further ---------- */
+  {
+    id: 'sandbox', chapter: '自由制作', chapterEn: 'Sandbox',
+    glyph: '✦', navName: '自由制作', navNameEn: 'Sandbox', sandbox: true,
+    title: '自由制作（サンドボックス）', titleEn: 'Sandbox',
+    concept: 'ゴールなし・全部品で自由に', conceptEn: 'no goal — build anything with every part',
+    goal: '作ったチップ全部と DFF が使える自由な作業場。多ビットのレジスタや加算器、独自のCPUなど、好きなものを組んで試そう。入力 in0〜in3 を切り替え、out0〜out3 で結果を見る。',
+    goalEn: 'A free workbench with every chip you built plus the DFF. Wire up multi-bit registers, adders, your own CPU — anything. Toggle in0–in3 and watch out0–out3.',
+    idea: 'ここから先は決まった課題はない。多ビット化も、アセンブリを走らせる機械も、作りたい人がここで実験できる。NAND から始まった旅の、続きは君の手に。',
+    ideaEn: 'No set tasks beyond here. Multi-bit machines, something that runs assembly — whoever wants to, can experiment here. The journey that began at NAND is now yours to continue.',
+    cols: 18, rows: 11,
+    inputs: [{ name: 'in0', y: 1 }, { name: 'in1', y: 3 }, { name: 'in2', y: 5 }, { name: 'in3', y: 7 }, { name: 'clk', y: 9 }],
+    outputs: [{ name: 'out0', y: 2 }, { name: 'out1', y: 4 }, { name: 'out2', y: 6 }, { name: 'out3', y: 8 }],
+    palette: [{ kind: 'nand' }, { kind: 'dff' }, { kind: 'high' }, { kind: 'low' }],
+    par: 0,
   },
 ];
 

@@ -27,7 +27,11 @@
     if (kind === 'dff') return L('DFF（フリップフロップ）', 'DFF (flip-flop)');
     return chipName(game.chipLib.get(chipId!)) || chipId!;
   }
-  const items = $derived(lv.palette.filter(it => it.kind !== 'chip' || game.chipLib.has(it.chipId!)));
+  const items = $derived<PaletteItem[]>(
+    lv.sandbox
+      ? [...lv.palette, ...[...game.chipLib.values()].map((c): PaletteItem => ({ kind: 'chip', chipId: c.id }))]
+      : lv.palette.filter(it => it.kind !== 'chip' || game.chipLib.has(it.chipId!))
+  );
 
   /* ---------- (i) preview: compute a real truth table by simulating ---------- */
   let preview = $state<null | { item: PaletteItem; top: number; left: number }>(null);

@@ -68,8 +68,10 @@
         : null;
       const res = await shareCard({
         title: L(lv.title, lv.titleEn), unit, cost: n, par: lv.par,
-        delay: game.substrate === 'switch' ? null : game.live.ticks,
-        lang: game.lang, table, url,
+        delay: game.substrate === 'switch' ? null : (game.bestDelay[lv.id] ?? game.live.ticks),
+        lang: game.lang, optimal: n <= lv.par,
+        totalNands: game.totalNands, stars: game.starCount, cleared: `${game.clearedCount}/${game.totalLevels}`,
+        table, url,
       }, txt);
       game.message = { text: res === 'shared' ? L('シェアしました', 'Shared!') : L('シェア画像を保存しました（SNSに貼れます）', 'Share image saved — post it anywhere'), kind: 'ok' };
     } catch {
@@ -142,13 +144,19 @@
 
   <div class="score">
     <span>{costLabel} <b>{cost}</b></span>
-    <span>{t('par')} <b>{lv.par}</b></span>
-    {#if game.best[lv.id] !== undefined}<span>{t('best')} <b>{game.best[lv.id]}</b></span>{/if}
-    {#if game.substrate !== 'switch'}<span>{t('delay')} <b>{game.live.ticks}</b></span>{/if}
+    {#if !lv.sandbox}
+      <span>{t('par')} <b>{lv.par}</b></span>
+      {#if cost <= lv.par}<span class="star">★ {L('最小', 'optimal')}</span>{/if}
+      {#if game.best[lv.id] !== undefined}<span>{t('best')} <b>{game.best[lv.id]}</b></span>{/if}
+    {/if}
+    {#if game.substrate !== 'switch'}<span>{t('delay')} <b>{game.live.ticks}</b>{#if !lv.sandbox && game.bestDelay[lv.id] !== undefined}<i class="bd">(best {game.bestDelay[lv.id]})</i>{/if}</span>{/if}
   </div>
+  <div class="totals">{L('通算', 'Total')}: NAND <b>{game.totalNands}</b> · ★ <b>{game.starCount}</b> · {L('クリア', 'cleared')} <b>{game.clearedCount}/{game.totalLevels}</b></div>
 
   <div class="actions">
-    {#if !game.solved}
+    {#if lv.sandbox}
+      <button class="btn btn--ghost" onclick={() => game.clearCircuit()}>{L('全部消す', 'Clear all')}</button>
+    {:else if !game.solved}
       <button class="btn" onclick={() => game.verify()}>{t('verify')}</button>
     {:else}
       <button class="btn" onclick={share}>↗ {t('share')}</button>
@@ -198,5 +206,9 @@
 
   .score { display: flex; gap: var(--sp-4); flex-wrap: wrap; font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); }
   .score b { color: var(--paper); }
+  .score .star { color: var(--brass-bright); }
+  .score .bd { color: var(--faint); font-style: normal; margin-left: 3px; }
+  .totals { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+  .totals b { color: var(--verdigris); }
   .actions { display: flex; gap: var(--sp-3); margin-top: auto; padding-top: var(--sp-3); }
 </style>

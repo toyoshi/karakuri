@@ -17,6 +17,7 @@ const LS_CHIPS = 'karakuri.chips.v1';
 const LS_DONE = 'karakuri.completed.v1';
 const LS_LANG = 'karakuri.lang';
 const LS_BEST = 'karakuri.best.v1';
+const LS_BESTD = 'karakuri.bestdelay.v1';
 
 export type Tool =
   | { type: 'wire' }
@@ -42,12 +43,17 @@ function loadSet(key: string): Set<string> {
 function loadBest(): Record<string, number> {
   try { return JSON.parse(localStorage.getItem(LS_BEST) || '{}'); } catch { return {}; }
 }
+function loadBestD(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(LS_BESTD) || '{}'); } catch { return {}; }
+}
 
 export class Game {
   circuit = $state<Circuit>({ instances: [], wires: [] });
   chipLib = $state<ChipLib>(loadChips());
   completed = $state<Set<string>>(loadSet(LS_DONE));
   best = $state<Record<string, number>>(loadBest());
+  bestDelay = $state<Record<string, number>>(loadBestD());
+  lastRecord = $state<{ gate: boolean; delay: boolean; optimal: boolean } | null>(null);
   levelIdx = $state(0);
   tool = $state<Tool>({ type: 'wire' });
   inputs = $state<Record<string, Bit>>({});
@@ -119,6 +125,7 @@ export class Game {
     this.solved = false;
     this.lastVerify = null;
     this.message = null;
+    this.lastRecord = null;
     this.syncLive();
   }
 
@@ -188,6 +195,12 @@ export class Game {
 
   clearWiring() { this.wiring = null; }
 
+  /** remove everything the player placed (keep the locked interface I/O) */
+  clearCircuit() {
+    this.circuit = { instances: this.circuit.instances.filter(i => i.locked), wires: [] };
+    this.touch();
+  }
+
   /* ---------- verification ---------- */
   verify(): boolean {
     const lv = this.level;
@@ -207,14 +220,25 @@ export class Game {
     // success!
     this.solved = true;
     this.completed.add(lv.id); this.persistDone();
-    this.recordBest(lv.id, this.cost);
+    const rec = this.recordBest(lv.id, this.cost, this.substrate === 'switch' ? Infinity : this.live.ticks);
+    const optimal = this.cost <= lv.par;
+    this.lastRecord = { gate: rec.gate, delay: rec.delay, optimal };
     if (lv.produces) this.earnChip(lv);
     const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : (ja ? 'NAND' : 'NANDs');
     const pname = lv.produces ? (ja ? lv.produces.name : (lv.produces.nameEn ?? lv.produces.name)) : '';
     const what = lv.produces ? (ja ? pname + ' を作った' : 'built ' + pname) : (ja ? '完成' : 'done');
-    this.message = { text: ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`, kind: 'ok' };
+    const tags = [optimal ? (ja ? '★最小達成' : '★ optimal') : '', rec.gate ? (ja ? '🏆自己ベスト更新' : '🏆 new best') : ''].filter(Boolean).join(' · ');
+    this.message = { text: (ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`) + (tags ? '  ' + tags : ''), kind: 'ok' };
     return true;
   }
+
+  /** aggregate stats for the "compete on totals" loop */
+  get totalNands(): number {
+    let s = 0; for (const lv of LEVELS) if (lv.substrate !== 'switch' && this.best[lv.id] !== undefined) s += this.best[lv.id]; return s;
+  }
+  get clearedCount(): number { return [...this.completed].filter(id => LEVELS.some(l => l.id === id)).length; }
+  get starCount(): number { return LEVELS.filter(l => this.best[l.id] !== undefined && this.best[l.id] <= l.par).length; }
+  isOptimal(id: string): boolean { const lv = LEVELS.find(l => l.id === id); return !!lv && this.best[id] !== undefined && this.best[id] <= lv.par; }
 
   private earnChip(lv: Level) {
     if (!lv.produces) return;
@@ -228,11 +252,19 @@ export class Game {
     this.persistChips();
   }
 
-  private recordBest(id: string, gates: number) {
+  private recordBest(id: string, gates: number, delay: number): { gate: boolean; delay: boolean } {
+    let gate = false, del = false;
     if (this.best[id] === undefined || gates < this.best[id]) {
+      gate = this.best[id] !== undefined && gates < this.best[id];
       this.best = { ...this.best, [id]: gates };
       localStorage.setItem(LS_BEST, JSON.stringify(this.best));
     }
+    if (Number.isFinite(delay) && (this.bestDelay[id] === undefined || delay < this.bestDelay[id])) {
+      del = this.bestDelay[id] !== undefined && delay < this.bestDelay[id];
+      this.bestDelay = { ...this.bestDelay, [id]: delay };
+      localStorage.setItem(LS_BESTD, JSON.stringify(this.bestDelay));
+    }
+    return { gate, delay: del };
   }
 
   private persistChips() {
@@ -243,8 +275,8 @@ export class Game {
   }
 
   resetProgress() {
-    this.chipLib = new Map(); this.completed = new Set(); this.best = {};
-    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST);
+    this.chipLib = new Map(); this.completed = new Set(); this.best = {}; this.bestDelay = {};
+    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST); localStorage.removeItem(LS_BESTD);
     this.loadLevel(0);
   }
 }

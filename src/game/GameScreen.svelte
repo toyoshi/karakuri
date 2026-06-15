@@ -51,6 +51,7 @@
   </nav>
 
   <div class="right">
+    <button class="introbtn" onclick={() => { const i = LEVELS.findIndex(l => l.id === 'sandbox'); if (i >= 0) go(i); }}>{L('自由制作', 'Sandbox')}</button>
     <button class="introbtn" onclick={() => (showIntro = true)}>{L('NANDとは', 'About NAND')}</button>
     <div class="lang">
       <button class:on={game.lang === 'ja'} onclick={() => game.setLang('ja')}>日本語</button>

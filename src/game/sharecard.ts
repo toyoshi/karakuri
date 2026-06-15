@@ -18,6 +18,10 @@ export interface CardData {
   par: number;
   delay: number | null;
   lang: 'ja' | 'en';
+  optimal: boolean;
+  totalNands: number;
+  stars: number;
+  cleared: string;        // e.g. "8/15"
   table: { inputs: string[]; outputs: string[]; rows: { in: Record<string, Bit>; out: Record<string, Bit> }[] } | null;
   url: string;
 }
@@ -99,6 +103,13 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   };
   chip(ja ? '目標' : 'par', String(d.par), C.paper);
   if (d.delay != null) chip(ja ? '遅延' : 'delay', String(d.delay), C.signal);
+  if (d.optimal) chip('★', ja ? '最小' : 'optimal', C.brassB);
+
+  // totals (the "compete on the whole run" hook) — right column, under the table
+  ctx.fillStyle = C.muted; ctx.font = `500 22px ${MONO}`;
+  ctx.fillText(ja ? '通算' : 'TOTAL', 760, 525);
+  ctx.fillStyle = C.verd; ctx.font = `600 26px ${MONO}`;
+  ctx.fillText(`NAND ${d.totalNands} · ★${d.stars} · ${d.cleared}`, 760, 558);
 
   // footer
   ctx.fillStyle = C.muted; ctx.font = `400 22px ${SANS}`;
