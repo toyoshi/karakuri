@@ -122,11 +122,13 @@
     if (da === 'in') return [w.b, w.a];
     return [w.a, w.b];
   }
+  // smooth bezier: leaves the driver rightward, enters the sink leftward —
+  // separates parallel/crossing/feedback wires that orthogonal routing overlapped.
   function wirePath(w: Wire) {
     const [fa, fb] = orient(w);
     const a = pinAbs(fa.inst, fa.pin), b = pinAbs(fb.inst, fb.pin);
-    const mx = (a.x + b.x) / 2;
-    return `M ${a.x} ${a.y} H ${mx} V ${b.y} H ${b.x}`;
+    const dx = Math.max(28, Math.abs(b.x - a.x) * 0.5);
+    return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
   }
   const wireLit = (w: Wire) => (game.pinValue(w.a.inst, w.a.pin) ?? game.pinValue(w.b.inst, w.b.pin)) === 1;
 
