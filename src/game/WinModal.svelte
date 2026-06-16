@@ -2,7 +2,6 @@
   import { game } from './store.svelte';
   import { makeShareCard, dispatchShare } from './sharecard';
   import { recordClip, shareClip, clipSupported } from './clipanim';
-  import { rankText } from './leaderboard';
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   const data = game.cardData();      // snapshot at the moment of clearing
@@ -88,10 +87,6 @@
       {/if}
     </div>
 
-    {#if game.rank && game.rank.n > 1}
-      <div class="rank">🌐 {rankText(game.rank, game.lang)}</div>
-    {/if}
-
     <div class="totals">{L('通算', 'Total')} · NAND {data.totalNands} · ★{data.stars} · {data.cleared}</div>
 
     <div class="btns">
@@ -142,7 +137,6 @@
   .node.chip rect { stroke: var(--verdigris-d); }
   .node.chip text { fill: var(--verdigris); font-size: 26px; }
 
-  .rank { margin-top: -2px; margin-bottom: var(--sp-3); text-align: center; font-family: var(--font-mono); font-size: var(--step-0); color: var(--brass-bright); }
   .totals { text-align: center; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); margin-bottom: var(--sp-3); }
   .btns { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
   .hint { margin-top: var(--sp-3); font-size: 0.74rem; color: var(--muted); line-height: 1.5; }

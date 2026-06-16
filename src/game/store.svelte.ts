@@ -12,7 +12,6 @@ import { CELL, pinXY, cellH } from './layout';
 import { buildSwitch, runSwitch, verifySwitch } from '../sim/switchlevel';
 import { verifyCombinational, verifySequential, truthTable } from '../sim/verify';
 import type { CardData } from './sharecard';
-import { submitScore, getDistribution, type Dist } from './leaderboard';
 import { LEVELS, initialCircuit, type Level, type PaletteItem } from './levels';
 import { pinKey } from './layout';
 
@@ -75,7 +74,6 @@ export class Game {
   message = $state<{ text: string; kind: 'ok' | 'err' | 'info' } | null>(null);
   solved = $state(false);
   showWin = $state(false);
-  rank = $state<Dist | null>(null);  // leaderboard standing for the current solve (null = no API / not yet)
   lastVerify = $state<ReturnType<typeof verifyCombinational> | null>(null);
 
   // every level's in-progress circuit, kept so leaving and returning never loses your work
@@ -195,7 +193,6 @@ export class Game {
     this.wiring = null;
     this.solved = this.completed.has(lv.id);  // returning to a cleared level: keep it marked solved
     this.showWin = false;
-    this.rank = null;
     this.selection = new Set();
     this.lastVerify = null;
     this.message = null;
@@ -362,12 +359,6 @@ export class Game {
     const tags = [optimal ? (ja ? '★最小達成' : '★ optimal') : '', rec.gate ? (ja ? '🏆自己ベスト更新' : '🏆 new best') : ''].filter(Boolean).join(' · ');
     this.message = { text: (ja ? `クリア！ ${what}（${this.cost} ${unit}）` : `Solved — ${what} (${this.cost} ${unit})`) + (tags ? '  ' + tags : ''), kind: 'ok' };
     this.showWin = true;
-    // leaderboard (best-effort, optional): submit + fetch standing
-    if (!lv.demo && !lv.sandbox) {
-      const g = this.cost, d = this.substrate === 'switch' ? 0 : this.live.ticks;
-      this.rank = null;
-      submitScore(lv.id, g, d).then(() => getDistribution(lv.id, g)).then(r => { if (this.level.id === lv.id) this.rank = r; });
-    }
     return true;
   }
 
