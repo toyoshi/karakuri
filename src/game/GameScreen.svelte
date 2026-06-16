@@ -20,6 +20,8 @@
     const fromHash = () => { const h = location.hash.slice(1); return LEVELS.findIndex(l => l.id === h); };
     const idx = fromHash();
     game.loadLevel(idx >= 0 ? idx : 0); // index 0 = the wordless "touch it" demo — the first thing you feel
+    // first-time tutorial: auto-open the intro once (the "NANDとは" walkthrough)
+    try { if (!localStorage.getItem('karakuri.seenIntro')) showIntro = true; } catch {}
     const onhash = () => { const i = fromHash(); if (i >= 0 && i !== game.levelIdx) game.loadLevel(i); };
     window.addEventListener('hashchange', onhash);
     return () => window.removeEventListener('hashchange', onhash);

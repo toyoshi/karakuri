@@ -55,6 +55,16 @@ function loadBestD(): Record<string, number> {
 function loadCircuits(): Record<string, Circuit> {
   try { return JSON.parse(localStorage.getItem(LS_CIRCUITS) || '{}'); } catch { return {}; }
 }
+/** Japanese for ja-locale browsers, English for everyone else — unless the
+    player has explicitly chosen a language before (that choice is persisted). */
+function initLang(): Lang {
+  try {
+    const saved = localStorage.getItem(LS_LANG);
+    if (saved === 'ja' || saved === 'en') return saved;
+    const langs = (navigator.languages?.length ? navigator.languages : [navigator.language]) || [];
+    return langs.some(l => l?.toLowerCase().startsWith('ja')) ? 'ja' : 'en';
+  } catch { return 'en'; }
+}
 function loadGrid(): Record<string, { dc: number; dr: number }> {
   try { return JSON.parse(localStorage.getItem(LS_GRID) || '{}'); } catch { return {}; }
 }
@@ -70,7 +80,7 @@ export class Game {
   tool = $state<Tool>({ type: 'wire' });
   inputs = $state<Record<string, Bit>>({});
   wiring = $state<PinRef | null>(null);
-  lang = $state<Lang>((localStorage.getItem(LS_LANG) as Lang) || 'ja');
+  lang = $state<Lang>(initLang());
   message = $state<{ text: string; kind: 'ok' | 'err' | 'info' } | null>(null);
   solved = $state(false);
   showWin = $state(false);
