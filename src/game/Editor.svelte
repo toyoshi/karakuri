@@ -18,6 +18,16 @@
   const px = $derived({ w: game.cols * CELL, h: game.rows * CELL });   // effective grid (honors power-user expansion)
   const expanded = $derived(!!game.gridExpand[lv.id]);
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
+
+  // free-running clock: while on, pulse the `clk` input on an interval
+  const SPEEDS = [800, 450, 200];
+  const speedLabel = $derived(({ 800: '0.5×', 450: '1×', 200: '2×' } as Record<number, string>)[game.clockMs] ?? '1×');
+  function cycleSpeed() { game.clockMs = SPEEDS[(SPEEDS.indexOf(game.clockMs) + 1) % SPEEDS.length]; }
+  $effect(() => {
+    if (!game.autoClock || !game.hasClock) return;
+    const id = setInterval(() => game.toggleInput('clk'), game.clockMs);
+    return () => clearInterval(id);
+  });
   const insts = $derived(game.circuit.instances);
   const byId = $derived(new Map(insts.map(i => [i.id, i])));
   const movable = (k: string) => k === 'nand' || k === 'chip' || k === 'nmos' || k === 'pmos' || k === 'high' || k === 'low' || k === 'dff';
@@ -207,6 +217,14 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="editor-wrap" bind:this={wrapEl}>
+  {#if game.hasClock}
+    <div class="clockctl" title={L('クロックを自動で刻む（回路がひとりでに走る）', 'Run the clock automatically (the circuit ticks on its own)')}>
+      <button class="play" class:on={game.autoClock} onclick={() => (game.autoClock = !game.autoClock)}>
+        {game.autoClock ? '⏸' : '▶'} <span class="lbl">{L('クロック', 'clock')}</span>
+      </button>
+      {#if game.autoClock}<button class="spd" onclick={cycleSpeed}>{speedLabel}</button>{/if}
+    </div>
+  {/if}
   {#if !lv.demo}
     <div class="gridctl" title={L('レイアウトを広げる（NANDだけで大きな回路を作る人向け）', 'Enlarge the grid — for building big circuits from NAND alone')}>
       <span class="dim">{game.cols}×{game.rows}</span>
@@ -334,6 +352,14 @@
     padding: 2px 9px; cursor: pointer; font-family: inherit; font-size: 0.68rem; transition: border-color 0.14s, color 0.14s; }
   .gridctl button:hover { border-color: var(--brass); color: var(--brass); }
   .gridctl .reset { color: var(--muted); }
+  .clockctl { position: absolute; top: 10px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-radius: var(--r-full); border: 1px solid var(--line); background: color-mix(in srgb, var(--ink-800) 88%, transparent); backdrop-filter: blur(4px); }
+  .clockctl button { border: 1px solid var(--line-strong); background: var(--ink-700); color: var(--paper-2); border-radius: var(--r-full);
+    padding: 3px 11px; cursor: pointer; font-family: inherit; font-size: 0.72rem; transition: border-color 0.14s, color 0.14s, background 0.14s; }
+  .clockctl button:hover { border-color: var(--brass); color: var(--brass); }
+  .clockctl .play.on { border-color: var(--signal); color: var(--signal); background: color-mix(in srgb, var(--signal) 12%, var(--ink-700)); }
+  .clockctl .spd { font-family: var(--font-mono); }
+  @media (max-width: 560px) { .clockctl .lbl { display: none; } }
   .tooltip { position: absolute; z-index: 5; pointer-events: none; max-width: 220px;
     background: var(--ink-700); border: 1px solid var(--line-strong); border-radius: var(--r-2);
     padding: 8px 11px; box-shadow: var(--sh-2); display: flex; flex-direction: column; gap: 3px; }

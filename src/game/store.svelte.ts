@@ -112,6 +112,13 @@ export class Game {
   get totalLevels(): number { return LEVELS.length; }
   get substrate(): 'gate' | 'switch' { return this.level.substrate ?? 'gate'; }
 
+  // free-running clock: auto-pulse a level's `clk` input so sequential
+  // circuits (counter / register / CPU / accumulator / processor) run on
+  // their own — you watch them tick instead of toggling clk by hand.
+  autoClock = $state(false);
+  clockMs = $state(450);
+  get hasClock(): boolean { return this.level.inputs.some(p => p.name === 'clk'); }
+
   // power-user grid expansion: enlarge the editor per level (e.g. build a CPU from NAND only)
   gridExpand = $state<Record<string, { dc: number; dr: number }>>(loadGrid());
   get cols(): number { return this.level.cols + (this.gridExpand[this.level.id]?.dc ?? 0); }
@@ -226,6 +233,7 @@ export class Game {
     this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, (lv.demo ? 0 : 1) as Bit]));
     this.tool = { type: 'wire' };
     this.wiring = null;
+    this.autoClock = false;                    // stop the free-running clock on level change
     this.solved = this.completed.has(lv.id);  // returning to a cleared level: keep it marked solved
     this.showWin = false;
     this.selection = new Set();
