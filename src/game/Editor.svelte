@@ -210,15 +210,15 @@
   {#if !lv.demo}
     <div class="gridctl" title={L('レイアウトを広げる（NANDだけで大きな回路を作る人向け）', 'Enlarge the grid — for building big circuits from NAND alone')}>
       <span class="dim">{game.cols}×{game.rows}</span>
-      <button onclick={() => game.growGrid(2, 0)} aria-label={L('横を広げる', 'wider')}>＋幅</button>
-      <button onclick={() => game.growGrid(0, 2)} aria-label={L('縦を広げる', 'taller')}>＋高</button>
+      <button onclick={() => game.growGrid(2, 0)} aria-label={L('横を広げる', 'wider')}>{L('＋幅', '+W')}</button>
+      <button onclick={() => game.growGrid(0, 2)} aria-label={L('縦を広げる', 'taller')}>{L('＋高', '+H')}</button>
       {#if expanded}<button class="reset" onclick={() => game.resetGrid()} aria-label={L('元に戻す', 'reset')}>↺</button>{/if}
     </div>
   {/if}
   <svg bind:this={svgEl} viewBox="0 0 {px.w} {px.h}" preserveAspectRatio="xMidYMid meet"
        onpointerdown={bgDown} onpointermove={onMove} onpointerup={onUp} onclick={onBgClick}
        class:placing={game.tool.type === 'place'} class:deleting={game.tool.type === 'delete'} class:selecting={game.tool.type === 'select'}
-       role="application" aria-label="回路エディタ">
+       role="application" aria-label={L('回路エディタ', 'circuit editor')}>
     <g class="grid">
       {#each Array(game.cols + 1) as _, c}<line x1={c * CELL} y1="0" x2={c * CELL} y2={px.h} />{/each}
       {#each Array(game.rows + 1) as _, r}<line x1="0" y1={r * CELL} x2={px.w} y2={r * CELL} />{/each}

@@ -86,8 +86,8 @@
         <svg viewBox="0 0 120 90" class="art"><g class="sw"><line class="wire lit" x1="10" y1="45" x2="45" y2="45"/><rect x="45" y="33" width="30" height="24" rx="4"/><text x="60" y="49">SW</text><line class="wire" x1="75" y1="45" x2="110" y2="45"/></g></svg>
       {:else if s.k === 'transistor'}
         <svg viewBox="0 0 220 90" class="art">
-          <g class="tr on"><rect x="20" y="25" width="60" height="40" rx="6"/><text x="50" y="42">NMOS</text><text class="sub" x="50" y="56">1で導通</text></g>
-          <g class="tr"><rect x="140" y="25" width="60" height="40" rx="6" class="p"/><text x="170" y="42">PMOS</text><text class="sub" x="170" y="56">0で導通</text></g>
+          <g class="tr on"><rect x="20" y="25" width="60" height="40" rx="6"/><text x="50" y="42">NMOS</text><text class="sub" x="50" y="56">{L('1で導通', 'on at 1')}</text></g>
+          <g class="tr"><rect x="140" y="25" width="60" height="40" rx="6" class="p"/><text x="170" y="42">PMOS</text><text class="sub" x="170" y="56">{L('0で導通', 'on at 0')}</text></g>
         </svg>
       {:else if s.k === 'inverter'}
         <svg viewBox="0 0 160 150" class="art">

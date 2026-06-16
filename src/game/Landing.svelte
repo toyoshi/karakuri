@@ -70,7 +70,7 @@
         <circle class="src on" cx="44" cy="200" r="9"/>
         <circle class="lamp on" cx="312" cy="150" r="11"/>
       </svg>
-      <span class="live">live · 信号が流れています</span>
+      <span class="live">{L('live · 信号が流れています', 'live · signals flowing')}</span>
     </div>
   </section>
 
