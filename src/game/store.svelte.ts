@@ -378,13 +378,20 @@ export class Game {
     const lv = this.level;
     const ja = this.lang === 'ja';
     const rows = lv.spec ? truthTable(lv.inputs.map(p => p.name), lv.spec) : [];
+    const steps = (lv.sequential && lv.steps?.length) ? lv.steps : null;
+    // never pass vacuously: a level with neither a truth table nor a step
+    // sequence has nothing to check, so an empty circuit must not "clear".
+    if (!steps && !rows.length) {
+      this.message = { text: ja ? 'この課題には検証用の仕様（真理値表・手順）がありません。' : 'This level has no spec (truth table / sequence) to verify against.', kind: 'err' };
+      return false;
+    }
     let res;
     if (this.substrate === 'switch') {
       res = verifySwitch(buildSwitch(this.circuit, this.chipLib), rows);
     } else {
       const { flat, errors } = this.compiled;
       if (errors.length) { this.message = { text: errors.join(' / '), kind: 'err' }; return false; }
-      res = (lv.sequential && lv.steps) ? verifySequential(flat, lv.steps) : verifyCombinational(flat, rows);
+      res = steps ? verifySequential(flat, steps) : verifyCombinational(flat, rows);
     }
     this.lastVerify = res;
     if (res.oscillated) { this.message = { text: ja ? '信号が安定しません（発振）。配線を見直そう。' : 'Signal never settles (oscillating).', kind: 'err' }; return false; }

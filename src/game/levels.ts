@@ -362,7 +362,7 @@ export const LEVELS: Level[] = [
   /* ---------- Chapter 7 — capstone: a tiny CPU (accumulator machine) ---------- */
   {
     id: 'cpu', chapter: 'CPU', chapterEn: 'CPU',
-    glyph: '▣', navName: 'CPU',
+    glyph: '▣', navName: 'CPU', sequential: true,
     title: 'アキュムレータ — 小さな計算機', titleEn: 'Accumulator — a tiny computer',
     concept: '記憶 × 計算 × クロック', conceptEn: 'memory × compute × clock',
     goal: '集大成。ALU（計算）の出力を DFF（記憶）に戻し、その値をまた ALU の入力 a に。クロックごとに「acc ← (acc op in)」が実行される。op を変えれば違う計算＝プログラム可能な計算機だ。手順どおり acc が動くように組もう。',
