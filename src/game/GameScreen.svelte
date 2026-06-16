@@ -8,8 +8,13 @@
   import GoalPanel from './GoalPanel.svelte';
   import IntroModal from './IntroModal.svelte';
   import WinModal from './WinModal.svelte';
+  import StageSelect from './StageSelect.svelte';
 
   let showIntro = $state(false);
+  let showStages = $state(false);
+  const lv = $derived(game.level);
+  const clearedReal = $derived(LEVELS.filter(l => !l.demo && !l.sandbox && game.completed.has(l.id)).length);
+  const totalReal = $derived(LEVELS.filter(l => !l.demo && !l.sandbox).length);
 
   onMount(() => {
     const fromHash = () => { const h = location.hash.slice(1); return LEVELS.findIndex(l => l.id === h); };
@@ -23,11 +28,8 @@
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   function goHome() { game.loadLevel(game.levelIdx); location.hash = ''; } // save current work, then back to landing
   function go(i: number) { game.loadLevel(i); history.replaceState(null, '', '#' + LEVELS[i].id); }
-  // keep the active level visible as the nav scrolls
-  $effect(() => {
-    game.levelIdx;
-    queueMicrotask(() => document.querySelector('.levelnav .lvl.on')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
-  });
+  function prev() { if (game.levelIdx > 0) go(game.levelIdx - 1); }
+  function nextLv() { if (game.levelIdx < game.totalLevels - 1) go(game.levelIdx + 1); }
   function closeIntro() { showIntro = false; try { localStorage.setItem('karakuri.seenIntro', '1'); } catch {} }
 </script>
 
@@ -41,18 +43,17 @@
     <b>{L('スイッチからCPU', 'Switch → CPU')}</b>
   </button>
 
-  <nav class="levelnav">
-    {#each LEVELS as l, i}
-      <button class="lvl" class:on={i === game.levelIdx} class:done={game.completed.has(l.id)}
-              onclick={() => go(i)} title={L(l.title, l.titleEn)}>
-        <span class="g">{l.glyph}</span>
-        <span class="nm">{L(l.navName, l.navNameEn ?? l.navName)}</span>
-      </button>
-    {/each}
-  </nav>
+  <div class="stepper">
+    <button class="step" onclick={prev} disabled={game.levelIdx === 0} aria-label={L('前へ', 'Previous')}>‹</button>
+    <button class="stagebtn" onclick={() => (showStages = true)} title={L('ステージ選択', 'Stage select')}>
+      <span class="ch">{L(lv.chapter, lv.chapterEn)}</span>
+      <span class="cur"><span class="g">{lv.glyph}</span><span class="nm">{L(lv.navName, lv.navNameEn ?? lv.navName)}</span></span>
+      <span class="prog">{clearedReal}/{totalReal} ✓</span>
+    </button>
+    <button class="step" onclick={nextLv} disabled={game.levelIdx === game.totalLevels - 1} aria-label={L('次へ', 'Next')}>›</button>
+  </div>
 
   <div class="right">
-    <button class="introbtn" onclick={() => { const i = LEVELS.findIndex(l => l.id === 'sandbox'); if (i >= 0) go(i); }}>{L('自由制作', 'Sandbox')}</button>
     <button class="introbtn" onclick={() => (showIntro = true)}>{L('NANDとは', 'About NAND')}</button>
     <div class="lang">
       <button class:on={game.lang === 'ja'} onclick={() => game.setLang('ja')}>日本語</button>
@@ -60,6 +61,8 @@
     </div>
   </div>
 </header>
+
+{#if showStages}<StageSelect onpick={go} onclose={() => (showStages = false)} />{/if}
 
 {#if showIntro}<IntroModal onclose={closeIntro} />{/if}
 {#if game.showWin}<WinModal />{/if}
@@ -78,20 +81,21 @@
   .brand { flex: none; display: flex; align-items: center; gap: 0.5em; font-family: var(--font-display); font-size: 1.2rem; color: var(--paper);
     background: none; border: none; padding: 0; cursor: pointer; transition: opacity 0.14s; }
   .brand:hover { opacity: 0.78; }
-  .levelnav { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 7px 2px; scrollbar-width: thin; }
-  .levelnav::-webkit-scrollbar { height: 6px; }
-  .levelnav::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 6px; }
-  .lvl {
-    flex: none; display: flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: var(--r-full);
-    border: 1px solid var(--line); background: var(--ink-700); color: var(--muted); cursor: pointer;
-    font-family: inherit; font-size: var(--step--1); transition: border-color 0.15s, color 0.15s, background 0.15s;
-  }
-  .lvl:hover { border-color: var(--line-strong); color: var(--paper-2); }
-  .lvl.on { border-color: var(--brass); color: var(--brass); background: color-mix(in srgb, var(--brass) 10%, var(--ink-700)); }
-  .lvl.done .g { color: var(--verdigris); }
-  .lvl .g { font-family: var(--font-mono); font-weight: 600; }
-  .lvl .nm { font-size: 0.78rem; }
-  @media (max-width: 720px) { .lvl .nm { display: none; } }
+  .stepper { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .step { flex: none; width: 30px; height: 30px; border-radius: var(--r-full); border: 1px solid var(--line);
+    background: var(--ink-700); color: var(--paper-2); cursor: pointer; font-size: 1.1rem; line-height: 1; transition: border-color 0.14s, color 0.14s; }
+  .step:hover:not(:disabled) { border-color: var(--brass); color: var(--brass); }
+  .step:disabled { opacity: 0.3; cursor: default; }
+  .stagebtn { display: flex; align-items: center; gap: 12px; max-width: 360px; padding: 5px 14px; border-radius: var(--r-full);
+    border: 1px solid var(--line-strong); background: var(--ink-700); color: var(--paper); cursor: pointer; font-family: inherit;
+    transition: border-color 0.14s, background 0.14s; }
+  .stagebtn:hover { border-color: var(--brass); background: var(--ink-600); }
+  .stagebtn .ch { font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .stagebtn .cur { display: flex; align-items: center; gap: 7px; }
+  .stagebtn .cur .g { font-family: var(--font-mono); font-weight: 600; color: var(--brass-bright); }
+  .stagebtn .cur .nm { font-size: var(--step--1); white-space: nowrap; }
+  .stagebtn .prog { font-family: var(--font-mono); font-size: 0.62rem; color: var(--verdigris); }
+  @media (max-width: 720px) { .stagebtn .ch, .stagebtn .prog { display: none; } }
 
   .right { flex: none; display: flex; align-items: center; gap: var(--sp-3); }
   .introbtn { background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-full); color: var(--paper-2); padding: 5px 12px; cursor: pointer; font-family: inherit; font-size: 0.72rem; }
