@@ -30,19 +30,58 @@
     }
   }
 
-  // group consecutive levels by chapter, keeping ladder order
-  type Group = { chapter: string; chapterEn: string; items: { lv: Level; i: number }[] };
-  const groups: Group[] = (() => {
-    const gs: Group[] = [];
-    LEVELS.forEach((lv, i) => {
-      const last = gs[gs.length - 1];
-      if (!last || last.chapter !== lv.chapter) gs.push({ chapter: lv.chapter, chapterEn: lv.chapterEn, items: [] });
-      gs[gs.length - 1].items.push({ lv, i });
-    });
-    return gs;
-  })();
-
   function pick(i: number) { onpick(i); onclose(); }
+
+  /* ---- tech tree: derive prerequisites from produces ↔ palette chips ---- */
+  const NW = 150, NH = 60, GX = 76, GY = 18;
+  const inTree = (l: Level) => !l.demo && !l.sandbox && l.substrate !== 'switch';
+
+  // chipId -> index of the level that produces it
+  const producerOf: Record<string, number> = {};
+  LEVELS.forEach((l, i) => { if (l.produces) producerOf[l.produces.id] = i; });
+  // the level indices a level depends on (its palette chips that something produces)
+  const reqIdx = (l: Level): number[] =>
+    [...new Set(l.palette.filter(p => p.kind === 'chip' && p.chipId).map(p => p.chipId!))]
+      .map(id => producerOf[id]).filter((v): v is number => v != null);
+
+  const tierCache = new Map<number, number>();
+  function tier(i: number): number {
+    if (tierCache.has(i)) return tierCache.get(i)!;
+    const reqs = reqIdx(LEVELS[i]);
+    const t = reqs.length ? 1 + Math.max(...reqs.map(tier)) : 0;
+    tierCache.set(i, t); return t;
+  }
+
+  type Node = { lv: Level; i: number; x: number; y: number };
+  const treeNodes: Node[] = [];
+  const posOf = new Map<number, { x: number; y: number }>();
+  let treeW = 0, treeH = 0;
+  {
+    const idxs = LEVELS.map((l, i) => i).filter(i => inTree(LEVELS[i]));
+    const maxTier = Math.max(0, ...idxs.map(tier));
+    const colCount: number[] = Array(maxTier + 1).fill(0);
+    // keep ladder order within each tier column
+    for (const i of idxs) {
+      const t = tier(i), row = colCount[t]++;
+      const x = t * (NW + GX), y = row * (NH + GY);
+      posOf.set(i, { x, y });
+      treeNodes.push({ lv: LEVELS[i], i, x, y });
+    }
+    treeW = (maxTier + 1) * (NW + GX) - GX;
+    treeH = Math.max(...colCount) * (NH + GY) - GY;
+  }
+  const edges = treeNodes.flatMap(n =>
+    reqIdx(n.lv).filter(pi => posOf.has(pi)).map(pi => {
+      const a = posOf.get(pi)!, b = posOf.get(n.i)!;
+      return { x1: a.x + NW, y1: a.y + NH / 2, x2: b.x, y2: b.y + NH / 2, derived: !!n.lv.derived };
+    }));
+  const edgePath = (e: { x1: number; y1: number; x2: number; y2: number }) => {
+    const dx = Math.max(30, (e.x2 - e.x1) / 2);
+    return `M ${e.x1} ${e.y1} C ${e.x1 + dx} ${e.y1} ${e.x2 - dx} ${e.y2} ${e.x2} ${e.y2}`;
+  };
+
+  // everything outside the dependency spine: the intro, the transistor bonus, the sandbox
+  const extras = LEVELS.map((lv, i) => ({ lv, i })).filter(x => !inTree(x.lv));
 </script>
 
 <div class="overlay" role="dialog" aria-modal="true" aria-label={L('ステージ選択', 'Stage select')}
@@ -55,25 +94,38 @@
     </header>
 
     <div class="scroll">
-      {#each groups as g}
-        <section class="chapter">
-          <h3>{L(g.chapter, g.chapterEn)}</h3>
-          <div class="grid">
-            {#each g.items as { lv, i }}
-              {@const done = game.completed.has(lv.id)}
-              {@const optimal = game.isOptimal(lv.id)}
-              <button class="cell" class:on={i === game.levelIdx} class:done
-                      onclick={() => pick(i)} title={L(lv.title, lv.titleEn)}>
-                <span class="g">{lv.glyph}</span>
-                <span class="nm">{L(lv.navName, lv.navNameEn ?? lv.navName)}</span>
-                <span class="state">
-                  {#if optimal}<span class="star">★</span>{:else if done}<span class="check">✓</span>{/if}
-                </span>
-              </button>
-            {/each}
-          </div>
-        </section>
-      {/each}
+      <p class="legend">{L('左 → 右：作った部品が、次の課題の材料になる。破線は「派生課題」——先には進まないが、部品の意味が分かる応用。', 'Left → right: each part you build becomes material for the next. Dashed = side-quests — they don\'t advance the spine, but show what your part is for.')}</p>
+
+      <div class="treewrap">
+        <div class="tree" style="width:{treeW}px; height:{treeH}px">
+          <svg class="edges" width={treeW} height={treeH} aria-hidden="true">
+            {#each edges as e}<path d={edgePath(e)} class="edge" class:derived={e.derived} />{/each}
+          </svg>
+          {#each treeNodes as n}
+            {@const done = game.completed.has(n.lv.id)}
+            {@const optimal = game.isOptimal(n.lv.id)}
+            <button class="node" class:on={n.i === game.levelIdx} class:done class:derived={n.lv.derived}
+                    style="left:{n.x}px; top:{n.y}px; width:{NW}px; height:{NH}px"
+                    onclick={() => pick(n.i)} title={L(n.lv.title, n.lv.titleEn)}>
+              <span class="g">{n.lv.glyph}</span>
+              <span class="nm">{L(n.lv.navName, n.lv.navNameEn ?? n.lv.navName)}</span>
+              <span class="state">{#if optimal}<span class="star">★</span>{:else if done}<span class="check">✓</span>{/if}</span>
+              {#if n.lv.derived}<span class="branch">{L('派生', 'side')}</span>{/if}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="extras">
+        <span class="extras-label">{L('その他', 'Extras')}</span>
+        {#each extras as { lv, i }}
+          {@const done = game.completed.has(lv.id)}
+          <button class="echip" class:on={i === game.levelIdx} class:done
+                  onclick={() => pick(i)} title={L(lv.title, lv.titleEn)}>
+            <span class="g">{lv.glyph}</span><span class="nm">{L(lv.navName, lv.navNameEn ?? lv.navName)}</span>
+          </button>
+        {/each}
+      </div>
 
       <footer class="sfoot">
         <div class="sfoot-actions">
@@ -93,7 +145,7 @@
 <style>
   .overlay { position: fixed; inset: 0; z-index: 90; display: grid; place-items: start center; padding: var(--sp-5) var(--sp-4);
     background: color-mix(in srgb, var(--ink-900) 82%, transparent); backdrop-filter: blur(6px); overflow-y: auto; }
-  .sheet { width: min(820px, 100%); background: linear-gradient(180deg, var(--ink-700), var(--ink-800));
+  .sheet { width: min(960px, 100%); background: linear-gradient(180deg, var(--ink-700), var(--ink-800));
     border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--sh-3); overflow: hidden; }
   .shead { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-4) var(--sp-5);
     border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--ink-800); }
@@ -102,24 +154,37 @@
   .x:hover { color: var(--paper); }
 
   .scroll { padding: var(--sp-4) var(--sp-5) var(--sp-5); }
-  .chapter { margin-top: var(--sp-4); }
-  .chapter:first-child { margin-top: 0; }
-  .chapter h3 { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase;
-    color: var(--brass); margin: 0 0 var(--sp-3); padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .legend { font-size: 0.72rem; color: var(--muted); line-height: 1.55; margin: 0 0 var(--sp-4); }
 
-  .cell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px;
+  .treewrap { overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+  .tree { position: relative; min-width: 100%; }
+  .edges { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .edge { fill: none; stroke: var(--line-strong); stroke-width: 2; }
+  .edge.derived { stroke: var(--brass-deep); stroke-dasharray: 4 5; opacity: 0.85; }
+
+  .node { position: absolute; display: flex; align-items: center; gap: 9px; padding: 0 12px;
     border: 1px solid var(--line); border-radius: var(--r-2); background: var(--ink-850); color: var(--paper-2);
-    cursor: pointer; font-family: inherit; transition: border-color 0.14s, background 0.14s, transform 0.1s; }
-  .cell:hover { border-color: var(--line-strong); background: var(--ink-700); transform: translateY(-1px); }
-  .cell.on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 10%, var(--ink-850)); }
-  .cell.done { border-color: var(--verdigris-d); }
-  .cell .g { font-family: var(--font-mono); font-weight: 600; font-size: 1.4rem; color: var(--paper); }
-  .cell.on .g { color: var(--brass-bright); }
-  .cell .nm { font-size: 0.74rem; text-align: center; line-height: 1.2; }
-  .cell .state { position: absolute; top: 6px; right: 8px; font-size: 0.7rem; }
-  .cell .star { color: var(--brass-bright); }
-  .cell .check { color: var(--verdigris); }
+    cursor: pointer; font-family: inherit; text-align: left; transition: border-color 0.14s, background 0.14s; }
+  .node:hover { border-color: var(--line-strong); background: var(--ink-700); }
+  .node.on { border-color: var(--brass); background: color-mix(in srgb, var(--brass) 10%, var(--ink-850)); }
+  .node.done { border-color: var(--verdigris-d); }
+  .node.derived { border-style: dashed; background: color-mix(in srgb, var(--brass) 5%, var(--ink-850)); }
+  .node .g { flex: none; width: 26px; text-align: center; font-family: var(--font-mono); font-weight: 600; font-size: 1.3rem; color: var(--paper); }
+  .node.on .g { color: var(--brass-bright); }
+  .node .nm { font-size: 0.8rem; line-height: 1.15; }
+  .node .state { position: absolute; top: 5px; right: 8px; font-size: 0.7rem; }
+  .node .star { color: var(--brass-bright); }
+  .node .check { color: var(--verdigris); }
+  .node .branch { position: absolute; bottom: 4px; right: 8px; font-family: var(--font-mono); font-size: 0.52rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--brass); }
+
+  .extras { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+  .extras-label { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); margin-right: 4px; }
+  .echip { display: flex; align-items: center; gap: 7px; padding: 7px 13px; border: 1px solid var(--line); border-radius: var(--r-full);
+    background: var(--ink-850); color: var(--paper-2); cursor: pointer; font-family: inherit; font-size: 0.76rem; transition: border-color 0.14s, color 0.14s; }
+  .echip:hover { border-color: var(--line-strong); }
+  .echip.on { border-color: var(--brass); color: var(--brass); }
+  .echip.done .g { color: var(--verdigris); }
+  .echip .g { font-family: var(--font-mono); font-weight: 600; }
 
   .sfoot { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
   .sfoot-actions { display: flex; align-items: center; gap: 10px; }
