@@ -19,7 +19,7 @@
       <path d="M9 11h5a5 5 0 0 1 0 10H9z" fill="none" stroke="var(--signal)" stroke-width="2"/>
       <path d="M14 16h9M23 13v6" stroke="var(--brass)" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    <b>Karakuri</b>
+    <b>{L('スイッチからCPU', 'Switch → CPU')}</b>
   </div>
   <div class="lnav">
     <div class="lang">
@@ -34,7 +34,7 @@
   <section class="hero wrap">
     <div class="hero__copy">
       <span class="kicker">{L('無料 · オープン · ブラウザだけ', 'Free · open · browser-only')}</span>
-      <h1>{L('NANDひとつから、', 'From a single NAND,')}<br><em>{L('計算機の全部を。', 'build the whole computer.')}</em></h1>
+      <h1>{L('スイッチひとつから、', 'From a single switch,')}<br><em>{L('CPUの全部を。', 'a whole CPU.')}</em></h1>
       <p class="lede">{L(
         'トランジスタから論理ゲート、加算器、記憶、そしてCPUまで。部品を一段ずつ自分の手で組み、作ったものを次の部品として使う。気づけば、コンピュータの“なぜ動くのか”が手の中にある。',
         'Transistor → logic gates → adder → memory → a working CPU. Build each layer by hand, then use what you built as the next part. Piece by piece, how a computer works ends up in your hands.'
@@ -85,8 +85,8 @@
         'Most programming education is built on subscriptions and course fees — knowledge, the cheapest thing to copy, sold dear for business reasons.'
       )}</p>
       <p>{L(
-        'Karakuriはその逆を行く。広告も課金も登録もない。ソースは公開、すべてブラウザの中で動く。そして無料でも陳腐ではない——扱う中身は、本物のコンピュータサイエンスそのものだ。',
-        "Karakuri does the opposite. No ads, no paywall, no signup. Open source, all in your browser. And free doesn't mean shallow — what you build here is real computer science."
+        'このサイトはその逆を行く。広告も課金も登録もない。ソースは公開、すべてブラウザの中で動く。そして無料でも陳腐ではない——扱う中身は、本物のコンピュータサイエンスそのものだ。',
+        "This project does the opposite. No ads, no paywall, no signup. Open source, all in your browser. And free doesn't mean shallow — what you build here is real computer science."
       )}</p>
     </div>
   </section>
@@ -98,7 +98,7 @@
 </main>
 
 <footer class="lfoot wrap">
-  <span>© {new Date().getFullYear()} Karakuri — {L('オープンな教育プロジェクト', 'an open education project')}</span>
+  <span>© {new Date().getFullYear()} {L('スイッチからCPU', 'Switch → CPU')} — {L('オープンな教育プロジェクト', 'an open education project')}</span>
 </footer>
 
 <style>

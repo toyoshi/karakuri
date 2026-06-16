@@ -111,7 +111,7 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   ctx.strokeStyle = C.brass; ctx.beginPath(); ctx.moveTo(pad + 20, pad + 23); ctx.lineTo(pad + 34, pad + 23); ctx.stroke();
   ctx.restore();
   ctx.fillStyle = C.paper; ctx.font = `600 30px ${DISP}`; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('Karakuri', pad + 60, pad + 32);
+  ctx.fillText(ja ? 'スイッチからCPU' : 'Switch → CPU', pad + 60, pad + 32);
 
   // eyebrow
   ctx.fillStyle = C.brass; ctx.font = `500 20px ${MONO}`;
@@ -158,7 +158,7 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
 
   // footer
   ctx.fillStyle = C.muted; ctx.font = `400 22px ${SANS}`;
-  ctx.fillText(ja ? '計算を、からくりとして学ぶ' : 'Build a computer from a single NAND', pad, H - 76);
+  ctx.fillText(ja ? 'スイッチひとつから、CPUまで' : 'From a switch to a CPU', pad, H - 76);
   ctx.fillStyle = C.brass; ctx.font = `400 22px ${MONO}`;
   ctx.fillText(d.url.replace(/^https?:\/\//, ''), pad, H - 44);
 

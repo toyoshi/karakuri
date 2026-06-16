@@ -397,8 +397,8 @@ export class Game {
     const n = this.best[lv.id] ?? this.cost;
     const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : 'NAND';
     return ja
-      ? `「${lv.title}」を ${unit} ${n}個で組み上げた！ — Karakuri（からくり）でCSをゼロから組む`
-      : `Built "${lv.titleEn}" from ${n} ${unit} on Karakuri — build a computer from a single NAND.`;
+      ? `「${lv.title}」を ${unit} ${n}個で組み上げた！ — スイッチからCPU：スイッチひとつから計算機を作る`
+      : `Built "${lv.titleEn}" from ${n} ${unit} — Switch → CPU: build a computer from a single switch.`;
   }
 
   /** aggregate stats for the "compete on totals" loop */

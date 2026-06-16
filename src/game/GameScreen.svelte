@@ -21,6 +21,7 @@
   });
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
+  function goHome() { game.loadLevel(game.levelIdx); location.hash = ''; } // save current work, then back to landing
   function go(i: number) { game.loadLevel(i); history.replaceState(null, '', '#' + LEVELS[i].id); }
   // keep the active level visible as the nav scrolls
   $effect(() => {
@@ -31,14 +32,14 @@
 </script>
 
 <header class="ghead">
-  <div class="brand">
+  <button class="brand" onclick={goHome} title={L('トップページへ', 'Back to home')}>
     <svg viewBox="0 0 32 32" aria-hidden="true" width="28" height="28">
       <rect width="32" height="32" rx="7" fill="none" stroke="var(--brass)" stroke-width="1" opacity="0.5"/>
       <path d="M9 11h5a5 5 0 0 1 0 10H9z" fill="none" stroke="var(--signal)" stroke-width="2"/>
       <path d="M14 16h9M23 13v6" stroke="var(--brass)" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    <b>Karakuri</b>
-  </div>
+    <b>{L('スイッチからCPU', 'Switch → CPU')}</b>
+  </button>
 
   <nav class="levelnav">
     {#each LEVELS as l, i}
@@ -74,7 +75,9 @@
     display: flex; align-items: center; gap: var(--sp-3); height: 60px; padding-inline: var(--sp-4);
     border-bottom: 1px solid var(--line); background: var(--ink-850);
   }
-  .brand { flex: none; display: flex; align-items: center; gap: 0.5em; font-family: var(--font-display); font-size: 1.2rem; color: var(--paper); }
+  .brand { flex: none; display: flex; align-items: center; gap: 0.5em; font-family: var(--font-display); font-size: 1.2rem; color: var(--paper);
+    background: none; border: none; padding: 0; cursor: pointer; transition: opacity 0.14s; }
+  .brand:hover { opacity: 0.78; }
   .levelnav { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 7px 2px; scrollbar-width: thin; }
   .levelnav::-webkit-scrollbar { height: 6px; }
   .levelnav::-webkit-scrollbar-thumb { background: var(--ink-600); border-radius: 6px; }
