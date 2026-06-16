@@ -483,6 +483,33 @@ export const LEVELS: Level[] = [
     produces: { id: 'ACC4', name: '4bit計算機', nameEn: '4-bit acc', glyph: '▣4' },
     par: 200,
   },
+  /* ---- the capstone: a self-running processor (program counter + ROM) ---- */
+  {
+    id: 'proc', chapter: 'CPU', chapterEn: 'CPU', sequential: true,
+    glyph: '▶', navName: '自走CPU', navNameEn: 'Auto-CPU',
+    title: '自走プロセッサ — 命令を自分で読む', titleEn: 'Self-running processor',
+    concept: 'プログラムカウンタ × 命令メモリ', conceptEn: 'program counter × instruction memory',
+    goal: 'もう op を手で叩かない。プログラムカウンタ(pc)が毎クロック 0→1→2→3 と進み、その値で命令メモリ(ROM＝固定配線)を引き、読み出した命令(op＋即値)を 4bit計算機(ACC4)に渡す。clk を刻むだけでプログラムが走る。命令を [+3, +5, AND 6, OR 7] と配線し、acc が 0→3→8→0→7 をたどるように。pc と zero も出そう。',
+    goalEn: 'No more toggling op by hand. A program counter (pc) steps 0→1→2→3 each clock; its value indexes an instruction memory (a ROM = fixed wiring) whose op + immediate drive your 4-bit accumulator (ACC4). Just pulse clk and the program runs. Wire the program [+3, +5, AND 6, OR 7] so acc traces 0→3→8→0→7. Output pc and zero too.',
+    idea: 'これが「本物のCPU」の最小形だ。命令を外から渡すのをやめ、pc が ROM を順に読みに行く——人は clk を刻むだけ。プログラムは“固定配線された真理値表”として回路に埋め込まれている。NAND ひとつから、ついに自分でプログラムを実行する機械まで来た。',
+    ideaEn: "This is the smallest real CPU. Instead of feeding instructions in, the pc walks through a ROM on its own — a human only ticks the clock. The program lives in the circuit as fixed wiring (a truth table). From a single NAND, you have reached a machine that runs a program by itself.",
+    cols: 28, rows: 14,
+    inputs: [{ name: 'clk', y: 7 }],
+    outputs: [{ name: 'pc0', y: 1 }, { name: 'pc1', y: 2 }, { name: 'acc0', y: 4 }, { name: 'acc1', y: 5 }, { name: 'acc2', y: 6 }, { name: 'acc3', y: 7 }, { name: 'zero', y: 9 }],
+    palette: [{ kind: 'nand' }, { kind: 'dff' }, { kind: 'chip', chipId: 'CNT' }, { kind: 'chip', chipId: 'ACC4' }, { kind: 'chip', chipId: 'ALU4' }, { kind: 'chip', chipId: 'AND' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'NOT' }, { kind: 'high' }, { kind: 'low' }],
+    steps: [
+      { in: { clk: 0 }, expected: { pc0: 0, pc1: 0, acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } },
+      { in: { clk: 1 }, expected: { pc0: 1, pc1: 0, acc0: 1, acc1: 1, acc2: 0, acc3: 0, zero: 0 } }, // I0: acc=0+3=3, pc→1
+      { in: { clk: 0 }, expected: { pc0: 1, pc1: 0, acc0: 1, acc1: 1, acc2: 0, acc3: 0, zero: 0 } },
+      { in: { clk: 1 }, expected: { pc0: 0, pc1: 1, acc0: 0, acc1: 0, acc2: 0, acc3: 1, zero: 0 } }, // I1: acc=3+5=8, pc→2
+      { in: { clk: 0 }, expected: { pc0: 0, pc1: 1, acc0: 0, acc1: 0, acc2: 0, acc3: 1, zero: 0 } },
+      { in: { clk: 1 }, expected: { pc0: 1, pc1: 1, acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } }, // I2: acc=8 AND 6=0, pc→3
+      { in: { clk: 0 }, expected: { pc0: 1, pc1: 1, acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } },
+      { in: { clk: 1 }, expected: { pc0: 0, pc1: 0, acc0: 1, acc1: 1, acc2: 1, acc3: 0, zero: 0 } }, // I3: acc=0 OR 7=7, pc→0
+    ],
+    produces: { id: 'PROC', name: '自走CPU', nameEn: 'Auto-CPU', glyph: '▶' },
+    par: 300,
+  },
 
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
   {
