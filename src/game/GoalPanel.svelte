@@ -4,7 +4,6 @@
   import { truthTable } from '../sim/verify';
   import { Simulator, type Bit } from '../sim/netlist';
   import { buildSwitch, runSwitch } from '../sim/switchlevel';
-  import { shareCard } from './sharecard';
   import { HINTS } from './levels';
 
   const lv = $derived(game.level);
@@ -56,17 +55,6 @@
   const cost = $derived(game.cost);
   const costLabel = $derived(game.substrate === 'switch' ? (game.lang === 'ja' ? 'トランジスタ' : 'transistors') : (game.lang === 'ja' ? 'ゲート数' : 'gates'));
   const errs = $derived(game.substrate === 'switch' ? [] : game.compiled.errors);
-
-  let sharing = $state(false);
-  async function share() {
-    if (sharing) return; sharing = true;
-    try {
-      const res = await shareCard(game.cardData(), game.shareText());
-      game.message = { text: res === 'shared' ? L('シェアしました', 'Shared!') : L('シェア画像を保存しました（SNSに貼れます）', 'Share image saved — post it anywhere'), kind: 'ok' };
-    } catch {
-      game.message = { text: L('シェアに失敗しました', 'Share failed'), kind: 'err' };
-    } finally { sharing = false; }
-  }
 </script>
 
 <div class="goalpanel">
@@ -172,11 +160,10 @@
     {:else}
       <!-- verify stays available after clearing, so you can keep optimising for a better score -->
       <button class="btn" onclick={() => game.verify()}>{game.solved ? L('再検証', 'Re-verify') : t('verify')}</button>
-      {#if game.solved}
-        <button class="btn btn--ghost" onclick={share}>↗ {t('share')}</button>
-        {#if game.levelIdx < game.totalLevels - 1}
-          <button class="btn btn--ghost" onclick={() => game.loadLevel(game.levelIdx + 1)}>{t('next')} →</button>
-        {/if}
+      <!-- share opens the same modal even before clearing — it shows a "not cleared yet" state -->
+      <button class="btn btn--ghost" onclick={() => (game.showWin = true)}>↗ {t('share')}</button>
+      {#if game.solved && game.levelIdx < game.totalLevels - 1}
+        <button class="btn btn--ghost" onclick={() => game.loadLevel(game.levelIdx + 1)}>{t('next')} →</button>
       {/if}
     {/if}
   </div>

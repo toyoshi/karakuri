@@ -4,9 +4,10 @@
   import { recordClip, shareClip, clipSupported } from './clipanim';
 
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
-  const data = game.cardData();      // snapshot at the moment of clearing
+  const data = game.cardData();      // snapshot at open time (clear, or a work-in-progress share)
   const text = game.shareText();
   const rec = game.lastRecord;
+  const solved = data.solved;        // false → sharing before clearing ("not cleared yet")
   const circ = data.circuit;         // your actual circuit, as render data (CELL coords)
   const brand = L('スイッチからCPU', 'Switch → CPU');
 
@@ -27,7 +28,8 @@
   async function shareVideo() {
     if (recording || !circ) return;
     recording = true;
-    const clip = await recordClip(circ, `${data.title} · ${data.cost} ${data.unit} · ${brand}`);
+    const wip = solved ? '' : (game.lang === 'ja' ? '（挑戦中）' : ' (in progress)');
+    const clip = await recordClip(circ, `${data.title}${wip} · ${data.cost} ${data.unit} · ${brand}`);
     recording = false;
     if (!clip) { game.message = { text: L('この端末は動画書き出しに未対応。画像でどうぞ。', 'Video export not supported here — use the image.'), kind: 'err' }; return; }
     const r = await shareClip(clip, text, data.url);
@@ -44,14 +46,14 @@
   }
 </script>
 
-<div class="overlay" role="dialog" aria-modal="true" aria-label={L('クリア', 'Solved')}>
-  <div class="card">
+<div class="overlay" role="dialog" aria-modal="true" aria-label={solved ? L('クリア', 'Solved') : L('途中経過', 'In progress')}>
+  <div class="card" class:progress={!solved}>
     <button class="x" onclick={close} aria-label="close">✕</button>
     <div class="head">
-      <span class="kicker">{L('課題クリア', 'SOLVED')}</span>
+      <span class="kicker">{solved ? L('課題クリア', 'SOLVED') : L('まだクリアしていません', 'NOT CLEARED YET')}</span>
       <div class="tags">
-        {#if rec?.optimal}<span class="tag star">★ {L('最小達成', 'optimal')}</span>{/if}
-        {#if rec?.gate}<span class="tag best">🏆 {L('自己ベスト更新', 'new best')}</span>{/if}
+        {#if solved && rec?.optimal}<span class="tag star">★ {L('最小達成', 'optimal')}</span>{/if}
+        {#if solved && rec?.gate}<span class="tag best">🏆 {L('自己ベスト更新', 'new best')}</span>{/if}
       </div>
     </div>
 
@@ -64,10 +66,10 @@
         </div>
       </div>
       <div class="rsub">
-        {L('個で組み上げた', 'to build it')}
+        {solved ? L('個で組み上げた', 'to build it') : L('個で組み立て中', 'placed so far')}
         {#if data.delay != null}<span class="dot">·</span>{L('遅延', 'delay')} {data.delay}{/if}
         <span class="dot">·</span>{L('目標', 'par')} {data.par}
-        {#if data.optimal}<span class="ok">{L('（最小）', '(optimal)')}</span>{/if}
+        {#if solved && data.optimal}<span class="ok">{L('（最小）', '(optimal)')}</span>{/if}
       </div>
 
       {#if circ && circ.nodes.length}
@@ -92,10 +94,16 @@
     <div class="btns">
       <button class="btn" onclick={share} disabled={sharing}>{sharing ? '…' : '↗ ' + L('画像でシェア', 'Share image')}</button>
       {#if canClip}<button class="btn btn--ghost" onclick={shareVideo} disabled={recording}>{recording ? '…' : '🎬 ' + L('動画', 'Video')}</button>{/if}
-      {#if !isLast}<button class="btn btn--ghost" onclick={next}>{L('次へ', 'Next')} →</button>{/if}
-      <button class="btn btn--ghost" onclick={close}>{L('閉じる', 'Close')}</button>
+      {#if solved && !isLast}<button class="btn btn--ghost" onclick={next}>{L('次へ', 'Next')} →</button>{/if}
+      <button class="btn btn--ghost" onclick={close}>{solved ? L('閉じる', 'Close') : L('組み立てに戻る', 'Back to building')}</button>
     </div>
-    <p class="hint">{L('「画像でシェア」で結果カードを保存してSNSに貼れます。友達に「何ゲートで作れた？」と挑戦しよう。', 'Hit "Share image" to save a result card and post it — challenge a friend to beat your gate count.')}</p>
+    <p class="hint">
+      {#if solved}
+        {L('「画像でシェア」で結果カードを保存してSNSに貼れます。友達に「何ゲートで作れた？」と挑戦しよう。', 'Hit "Share image" to save a result card and post it — challenge a friend to beat your gate count.')}
+      {:else}
+        {L('まだクリアしていない途中の回路です。画像や動画でシェアして「ここまで作った！」と見せられます。', 'This is a work in progress — not cleared yet. Share the image or video to show how far you have gotten.')}
+      {/if}
+    </p>
   </div>
 </div>
 
@@ -105,6 +113,9 @@
   .card { position: relative; width: min(620px, 100%); background: linear-gradient(180deg, var(--ink-700), var(--ink-800));
     border: 1px solid var(--ok); border-radius: var(--r-4); padding: var(--sp-5) var(--sp-5) var(--sp-4);
     box-shadow: var(--sh-3), 0 0 0 1px rgba(110,210,154,0.25); }
+  .card.progress { border-color: var(--brass-deep); box-shadow: var(--sh-3), 0 0 0 1px rgba(216,166,87,0.22); }
+  .card.progress .kicker { color: var(--brass-bright); }
+  .card.progress .kicker::before { background: var(--brass); }
   .x { position: absolute; top: 14px; right: 14px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
   .x:hover { color: var(--paper); }
   .head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }

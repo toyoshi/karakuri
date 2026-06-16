@@ -64,9 +64,12 @@ function problem() {
 
 function state() {
   const vals = game.live.vals;
+  const safePins = (i: Instance) => {
+    try { return pinsOf(i, game.chipLib); } catch { return []; }
+  };
   const instances = game.circuit.instances.map(i => ({
     id: i.id, kind: i.kind, chipId: i.chipId, name: i.name, x: i.x ?? 0, y: i.y ?? 0, locked: !!i.locked,
-    pins: pinsOf(i, game.chipLib).map(p => ({ name: p.name, dir: p.dir, value: vals.get(i.id + ':' + p.name) ?? null })),
+    pins: safePins(i).map(p => ({ name: p.name, dir: p.dir, value: vals.get(i.id + ':' + p.name) ?? null })),
   }));
   return {
     levelId: game.level.id,
@@ -105,6 +108,8 @@ function goto(idOrIndex: string | number): ReturnType<typeof problem> | { error:
 }
 
 function place(kind: Instance['kind'], x: number, y: number, chipId?: string) {
+  if (kind === 'chip' && (!chipId || !game.chipLib.has(chipId)))
+    return { error: `unknown chip: ${chipId}. available: ${[...game.chipLib.keys()].join(', ') || '(none yet)'}` };
   const id = game.placePart(kind, x, y, chipId);
   return id ? { id } : { error: 'cell occupied or out of bounds' };
 }

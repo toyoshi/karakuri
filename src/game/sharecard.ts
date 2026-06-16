@@ -18,6 +18,7 @@ export interface CardData {
   par: number;
   delay: number | null;
   lang: 'ja' | 'en';
+  solved: boolean;        // false = sharing a work-in-progress ("not cleared yet")
   optimal: boolean;
   totalNands: number;
   stars: number;
@@ -113,9 +114,9 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   ctx.fillStyle = C.paper; ctx.font = `600 30px ${DISP}`; ctx.textBaseline = 'alphabetic';
   ctx.fillText(ja ? 'スイッチからCPU' : 'Switch → CPU', pad + 60, pad + 32);
 
-  // eyebrow
-  ctx.fillStyle = C.brass; ctx.font = `500 20px ${MONO}`;
-  ctx.fillText(ja ? '課題クリア' : 'SOLVED', pad, 230);
+  // eyebrow — solved vs work-in-progress
+  ctx.fillStyle = d.solved ? C.brass : C.muted; ctx.font = `500 20px ${MONO}`;
+  ctx.fillText(d.solved ? (ja ? '課題クリア' : 'SOLVED') : (ja ? '挑戦中・未クリア' : 'IN PROGRESS · NOT CLEARED YET'), pad, 230);
 
   // headline (level title)
   ctx.fillStyle = C.paper; ctx.font = `600 58px ${DISP}`;
@@ -131,7 +132,7 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   ctx.fillStyle = C.paper2; ctx.font = `500 30px ${SANS}`;
   ctx.fillText(d.unit, pad + numW + 22, 410);
   ctx.fillStyle = C.muted; ctx.font = `400 26px ${SANS}`;
-  ctx.fillText(ja ? `個で組み上げた` : `to build it`, pad + numW + 22, 448);
+  ctx.fillText(d.solved ? (ja ? `個で組み上げた` : `to build it`) : (ja ? `個で組み立て中` : `placed so far`), pad + numW + 22, 448);
 
   // chips: par / delay
   let cx = pad;

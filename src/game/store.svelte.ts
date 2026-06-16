@@ -406,7 +406,7 @@ export class Game {
       title: ja ? lv.title : lv.titleEn,
       unit: this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : 'NAND',
       cost: n, par: lv.par, delay: this.substrate === 'switch' ? null : (this.bestDelay[lv.id] ?? this.live.ticks),
-      lang: this.lang, optimal: n <= lv.par, totalNands: this.totalNands, stars: this.starCount,
+      lang: this.lang, solved: this.solved, optimal: this.solved && n <= lv.par, totalNands: this.totalNands, stars: this.starCount,
       cleared: `${this.clearedCount}/${LEVELS.length}`, table,
       circuit: this.circuitRender(),
       url: location.origin + location.pathname + '#' + lv.id,
