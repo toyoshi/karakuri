@@ -1,9 +1,34 @@
 <script lang="ts">
   import { game } from './store.svelte';
   import { LEVELS, type Level } from './levels';
+  import { exportProgress, importProgress } from './progress';
 
   let { onpick, onclose }: { onpick: (i: number) => void; onclose: () => void } = $props();
   const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
+
+  // ---- progress backup (export / import) — quiet footer affordance ----
+  let fileInput: HTMLInputElement;
+  let busy = $state(false);
+  let note = $state<{ text: string; ok: boolean } | null>(null);
+
+  function doExport() { exportProgress(new Date().toISOString()); }
+  function pickImport() { note = null; fileInput?.click(); }
+  async function onFile(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';                       // allow re-picking the same file later
+    if (!file) return;
+    if (!confirm(L('現在の進捗を、選んだファイルの内容で置き換えます。よろしいですか？', 'This replaces your current progress with the file. Continue?'))) return;
+    busy = true;
+    try {
+      const { keys } = await importProgress(file);
+      note = { text: L(`読み込みました（${keys}項目）。再読み込みします…`, `Imported ${keys} items. Reloading…`), ok: true };
+      setTimeout(() => location.reload(), 600);
+    } catch (err) {
+      note = { text: L('読み込みに失敗：', 'Import failed: ') + (err instanceof Error ? err.message : ''), ok: false };
+      busy = false;
+    }
+  }
 
   // group consecutive levels by chapter, keeping ladder order
   type Group = { chapter: string; chapterEn: string; items: { lv: Level; i: number }[] };
@@ -49,6 +74,18 @@
           </div>
         </section>
       {/each}
+
+      <footer class="sfoot">
+        <div class="sfoot-actions">
+          <button class="lnk" onclick={doExport}>↧ {L('エクスポート', 'Export')}</button>
+          <span class="sep">·</span>
+          <button class="lnk" onclick={pickImport} disabled={busy}>↥ {L('インポート', 'Import')}</button>
+          <input bind:this={fileInput} type="file" accept="application/json,.json" onchange={onFile} hidden />
+        </div>
+        <p class="sfoot-note" class:err={note && !note.ok} class:ok={note?.ok}>
+          {note ? note.text : L('進捗（作った部品・記録・回路）をファイルに保存／復元できます。', 'Back up or restore your progress (chips, records, circuits) as a file.')}
+        </p>
+      </footer>
     </div>
   </div>
 </div>
@@ -83,4 +120,14 @@
   .cell .state { position: absolute; top: 6px; right: 8px; font-size: 0.7rem; }
   .cell .star { color: var(--brass-bright); }
   .cell .check { color: var(--verdigris); }
+
+  .sfoot { margin-top: var(--sp-5); padding-top: var(--sp-4); border-top: 1px solid var(--line); }
+  .sfoot-actions { display: flex; align-items: center; gap: 10px; }
+  .sfoot-actions .sep { color: var(--faint); }
+  .lnk { background: none; border: none; padding: 0; cursor: pointer; font-family: var(--font-mono); font-size: 0.74rem; color: var(--muted); transition: color 0.14s; }
+  .lnk:hover:not(:disabled) { color: var(--brass); }
+  .lnk:disabled { opacity: 0.5; cursor: default; }
+  .sfoot-note { margin-top: 7px; font-size: 0.68rem; color: var(--faint); line-height: 1.5; }
+  .sfoot-note.ok { color: var(--ok); }
+  .sfoot-note.err { color: var(--err); }
 </style>
