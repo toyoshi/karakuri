@@ -93,6 +93,17 @@ export class Game {
   get cols(): number { return this.level.cols + (this.gridExpand[this.level.id]?.dc ?? 0); }
   get rows(): number { return this.level.rows + (this.gridExpand[this.level.id]?.dr ?? 0); }
 
+  /** the parts the player may use right now: level primitives + every chip earned
+      (single source of truth for both the Palette UI and the agent API) */
+  get availableParts(): PaletteItem[] {
+    const lv = this.level;
+    if (lv.demo) return [];
+    if (this.substrate === 'switch') return lv.palette;          // transistor primitives only
+    const prims = lv.palette.filter(it => it.kind !== 'chip');   // nand / dff / power / ground
+    const earned = [...this.chipLib.values()].map((c): PaletteItem => ({ kind: 'chip', chipId: c.id }));
+    return [...prims, ...earned];
+  }
+
   compiled = $derived(compile(this.circuit, this.chipLib));
 
   /** cost metric: transistors for switch levels, NAND count for gate levels */
@@ -214,6 +225,28 @@ export class Game {
     if (item.kind === 'chip') inst.chipId = item.chipId;
     this.circuit.instances.push(inst);
     this.touch();
+  }
+
+  /** place a part programmatically and return its new id (used by the agent API) */
+  placePart(kind: Instance['kind'], gx: number, gy: number, chipId?: string): string | null {
+    if (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) return null;
+    if (this.circuit.instances.some(i => i.x === gx && i.y === gy)) return null;
+    const inst: Instance = { id: uid(), kind, x: gx, y: gy };
+    if (kind === 'chip') inst.chipId = chipId;
+    this.circuit.instances.push(inst);
+    this.touch();
+    return inst.id;
+  }
+
+  /** move a placed (unlocked) part to a free cell; returns success (used by the agent API) */
+  moveInstance(id: string, gx: number, gy: number): boolean {
+    const inst = this.circuit.instances.find(i => i.id === id);
+    if (!inst || inst.locked) return false;
+    if (gx < 0 || gy < 0 || gx >= this.cols || gy >= this.rows) return false;
+    if (this.circuit.instances.some(i => i.id !== id && i.x === gx && i.y === gy)) return false;
+    inst.x = gx; inst.y = gy;
+    this.touch();
+    return true;
   }
 
   deleteInstance(id: string) {

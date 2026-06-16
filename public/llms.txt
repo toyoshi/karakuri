@@ -1,0 +1,66 @@
+# スイッチからCPU (Switch → CPU)
+
+> A free, browser-only game where you build digital logic from a single NAND
+> gate all the way up to a working CPU — a modern remake of nandgame /
+> nand-to-tetris. Bilingual (Japanese / English). No accounts, no ads.
+
+This is a single-page app with hash-based routing (`#<levelId>`, e.g.
+`#not`, `#and`, `#cpu`, `#sandbox`). Each "page" is a puzzle: wire up parts
+on a grid so the circuit matches a target truth table (or, for memory
+levels, a target timing sequence).
+
+## Solving puzzles with an AI (operation API)
+
+The page exposes a structured operation API at `window.karakuri` for an
+in-browser AI agent (e.g. Claude in Chrome) to read and solve puzzles
+precisely, instead of inferring from screenshots. Everything is JSON.
+
+Discover it at runtime:
+
+- `karakuri.help()` — the full method list and a worked example
+- `karakuri.problem()` — the CURRENT puzzle as data: goal, target truth
+  table (or timing sequence), available parts and their pin names, the
+  grid size, and the par (reference gate count)
+- `karakuri.state()` — the current circuit: placed parts with pin values,
+  wires, cost, and the live input values
+- `karakuri.verify()` — run the checker; returns `{ pass, oscillated, rows,
+  failing }` with the exact failing input rows
+
+Act:
+
+- `karakuri.goto(idOrIndex)` — load a level (also updates the URL)
+- `karakuri.place(kind, x, y, chipId?)` — drop a part, returns `{ id }`.
+  `kind` ∈ `nand | chip | dff | high | low | nmos | pmos`; for a built chip,
+  pass its `chipId` (e.g. `"NOT"`, `"AND"`, `"MUX"`).
+- `karakuri.wire(fromId, fromPin, toId, toPin)` — connect two pins.
+- `karakuri.setInput(name, 0|1)`, `karakuri.move(id, x, y)`,
+  `karakuri.remove(id)`, `karakuri.clear()`, `karakuri.hint(n)`,
+  `karakuri.grid(dCols, dRows)`.
+
+Coordinates are integer grid cells: `x` = column (0 = left, inputs live
+there), `y` = row. Outputs sit on the right edge. Interface I/O is
+pre-placed and locked: an input named `X` has instance id `in_X` and you
+drive from its pin `y`; an output named `Y` has id `out_Y` and you feed its
+pin `x`. Get exact ids/pins from `karakuri.state()`.
+
+Worked example — build NOT = NAND(X, X):
+
+    const { id } = karakuri.place("nand", 6, 4);
+    karakuri.wire("in_X", "y", id, "a");
+    karakuri.wire("in_X", "y", id, "b");
+    karakuri.wire(id, "y", "out_Y", "x");
+    karakuri.verify();   // { pass: true, ... }
+
+## The ladder of levels
+
+Transistor (switch) → NAND → NOT/AND/OR/XOR/NOR/XNOR → half/full adder →
+SR & D latch (memory) → MUX & register → ALU → program counter → a tiny
+accumulator CPU. Plus a free-build sandbox and bonus transistor levels.
+Each solved level becomes a reusable chip in your palette.
+
+## Notes
+
+- Progress (built chips, best scores, in-progress circuits) is stored in
+  the browser's localStorage. There is no server and no leaderboard.
+- Solutions are scored by part count (NANDs, or transistors on switch
+  levels); a `★` means you hit or beat par.
