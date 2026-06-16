@@ -368,6 +368,34 @@ export const LEVELS: Level[] = [
     produces: { id: 'ALU', name: 'ALU', nameEn: 'ALU', glyph: '⊞' },
     par: 34,
   },
+  /* ---- multi-bit + arithmetic: a real 4-bit ALU that can ADD ---- */
+  {
+    id: 'alu4', chapter: '演算装置', chapterEn: 'ALU',
+    glyph: '⊞4', navName: '4bit ALU', navNameEn: '4-bit ALU',
+    title: '4ビットALU — 加算もできる演算装置', titleEn: '4-bit ALU — now it can add',
+    concept: '多ビット化＋算術', conceptEn: 'go multi-bit, add arithmetic',
+    goal: '4ビットの a（a0〜a3）と b（b0〜b3）に対し、op で演算を選ぶ：00=加算(a+b), 01=AND, 10=OR, 11=XOR。結果を y0〜y3 に、加算の桁あふれを cout に出そう。論理は桁ごと、加算は全加算器の連鎖だ。',
+    goalEn: 'On 4-bit a (a0–a3) and b (b0–b3), op selects: 00=add (a+b), 01=AND, 10=OR, 11=XOR. Put the result in y0–y3 and the add overflow in cout. Logic is per-bit; addition is a chain of full adders.',
+    idea: '1ビットのALUの考え方を4本に束ね、加算だけは全加算器を鎖につなぐ。論理しか無かった演算装置が、ついに“数”を計算する。これが電卓の中身だ。',
+    ideaEn: 'Bundle the 1-bit ALU idea across four bits, and chain full adders for the add path. The logic-only ALU can finally compute numbers — the guts of a calculator.',
+    cols: 26, rows: 14,
+    inputs: [{ name: 'a0', y: 1 }, { name: 'a1', y: 2 }, { name: 'a2', y: 3 }, { name: 'a3', y: 4 }, { name: 'b0', y: 6 }, { name: 'b1', y: 7 }, { name: 'b2', y: 8 }, { name: 'b3', y: 9 }, { name: 'op0', y: 11 }, { name: 'op1', y: 12 }],
+    outputs: [{ name: 'y0', y: 2 }, { name: 'y1', y: 4 }, { name: 'y2', y: 6 }, { name: 'y3', y: 8 }, { name: 'cout', y: 11 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'FADD' }, { kind: 'chip', chipId: 'HADD' }, { kind: 'chip', chipId: 'AND' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'XOR' }, { kind: 'chip', chipId: 'MUX' }, { kind: 'low' }],
+    spec: (m) => {
+      const A = (m.a0 ? 1 : 0) + (m.a1 ? 2 : 0) + (m.a2 ? 4 : 0) + (m.a3 ? 8 : 0);
+      const B = (m.b0 ? 1 : 0) + (m.b1 ? 2 : 0) + (m.b2 ? 4 : 0) + (m.b3 ? 8 : 0);
+      const sel = (m.op1 ? 2 : 0) + (m.op0 ? 1 : 0);
+      let y = 0, cout = 0;
+      if (sel === 0) { const s = A + B; y = s & 15; cout = (s >> 4) & 1; }
+      else if (sel === 1) y = A & B;
+      else if (sel === 2) y = A | B;
+      else y = A ^ B;
+      return { y0: (y & 1) as Bit, y1: ((y >> 1) & 1) as Bit, y2: ((y >> 2) & 1) as Bit, y3: ((y >> 3) & 1) as Bit, cout: cout as Bit };
+    },
+    produces: { id: 'ALU4', name: '4bit ALU', nameEn: '4-bit ALU', glyph: '⊞4' },
+    par: 180,
+  },
 
   /* ---------- Chapter 6 — counting / time ---------- */
   {
@@ -425,6 +453,35 @@ export const LEVELS: Level[] = [
     ],
     produces: { id: 'ACC', name: 'アキュムレータ', nameEn: 'Accumulator', glyph: '▣' },
     par: 34,
+  },
+  /* ---- the calculator's insides: 4-bit accumulator with a zero flag ---- */
+  {
+    id: 'acc4', chapter: 'CPU', chapterEn: 'CPU', sequential: true,
+    glyph: '▣4', navName: '4bit計算機', navNameEn: '4-bit acc',
+    title: '4ビット・アキュムレータ加算機', titleEn: '4-bit accumulator (+ zero flag)',
+    concept: '数を足し込み、ゼロを判定する', conceptEn: 'accumulate numbers, detect zero',
+    goal: '4ビットALUを記憶につなぐ。クロックごとに acc ← (acc op in)。op=加算なら数が積み上がる（3を入れ、5を足すと8）。さらに、結果が 0 のとき zero を 1 に——「結果を見て判断する」の第一歩、ゼロ判定フラグだ。',
+    goalEn: 'Wire the 4-bit ALU into memory: each clock acc ← (acc op in). With add, numbers pile up (load 3, add 5 → 8). And raise zero when the result is 0 — a zero flag, the first step toward "decide based on the result".',
+    idea: 'これが電卓の中身だ。加算で数を足し込み、ゼロ判定で初めて「結果を見て次を変える」素地ができる。減算して0かを見れば、それは比較(CMP)そのもの。命令列を自動で読めば、もう本物のCPUだ。',
+    ideaEn: "These are a calculator's insides. Add to accumulate; the zero flag is the seed of branching — subtract and test for zero and you have CMP. Feed it an instruction stream automatically and it is a real CPU.",
+    cols: 24, rows: 13,
+    inputs: [{ name: 'in0', y: 1 }, { name: 'in1', y: 2 }, { name: 'in2', y: 3 }, { name: 'in3', y: 4 }, { name: 'op0', y: 6 }, { name: 'op1', y: 7 }, { name: 'clk', y: 9 }],
+    outputs: [{ name: 'acc0', y: 1 }, { name: 'acc1', y: 3 }, { name: 'acc2', y: 5 }, { name: 'acc3', y: 7 }, { name: 'zero', y: 9 }],
+    palette: [{ kind: 'dff' }, { kind: 'chip', chipId: 'ALU4' }, { kind: 'chip', chipId: 'OR' }, { kind: 'chip', chipId: 'NOT' }, { kind: 'nand' }],
+    steps: [
+      { in: { in0: 1, in1: 1, in2: 0, in3: 0, op0: 0, op1: 0, clk: 0 }, expected: { acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } },
+      { in: { in0: 1, in1: 1, in2: 0, in3: 0, op0: 0, op1: 0, clk: 1 }, expected: { acc0: 1, acc1: 1, acc2: 0, acc3: 0, zero: 0 } }, // acc = 0 + 3 = 3
+      { in: { in0: 1, in1: 0, in2: 1, in3: 0, op0: 0, op1: 0, clk: 0 }, expected: { acc0: 1, acc1: 1, acc2: 0, acc3: 0, zero: 0 } },
+      { in: { in0: 1, in1: 0, in2: 1, in3: 0, op0: 0, op1: 0, clk: 1 }, expected: { acc0: 0, acc1: 0, acc2: 0, acc3: 1, zero: 0 } }, // acc = 3 + 5 = 8
+      { in: { in0: 0, in1: 1, in2: 1, in3: 0, op0: 1, op1: 0, clk: 0 }, expected: { acc0: 0, acc1: 0, acc2: 0, acc3: 1, zero: 0 } },
+      { in: { in0: 0, in1: 1, in2: 1, in3: 0, op0: 1, op1: 0, clk: 1 }, expected: { acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } }, // acc = 8 AND 6 = 0 → zero!
+      { in: { in0: 1, in1: 1, in2: 1, in3: 0, op0: 0, op1: 1, clk: 0 }, expected: { acc0: 0, acc1: 0, acc2: 0, acc3: 0, zero: 1 } },
+      { in: { in0: 1, in1: 1, in2: 1, in3: 0, op0: 0, op1: 1, clk: 1 }, expected: { acc0: 1, acc1: 1, acc2: 1, acc3: 0, zero: 0 } }, // acc = 0 OR 7 = 7
+      { in: { in0: 0, in1: 1, in2: 0, in3: 0, op0: 1, op1: 1, clk: 0 }, expected: { acc0: 1, acc1: 1, acc2: 1, acc3: 0, zero: 0 } },
+      { in: { in0: 0, in1: 1, in2: 0, in3: 0, op0: 1, op1: 1, clk: 1 }, expected: { acc0: 1, acc1: 0, acc2: 1, acc3: 0, zero: 0 } }, // acc = 7 XOR 2 = 5
+    ],
+    produces: { id: 'ACC4', name: '4bit計算機', nameEn: '4-bit acc', glyph: '▣4' },
+    par: 200,
   },
 
   /* ---------- Bonus — go BELOW NAND and build it from transistors ---------- */
