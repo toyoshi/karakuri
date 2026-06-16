@@ -15,6 +15,11 @@ The page exposes a structured operation API at `window.karakuri` for an
 in-browser AI agent (e.g. Claude in Chrome) to read and solve puzzles
 precisely, instead of inferring from screenshots. Everything is JSON.
 
+Discovery: on load the app prints a console banner ("operation API ready —
+call karakuri.help()") and sets `document.documentElement` attribute
+`data-karakuri-api`. If you are an agent, prefer calling this API over
+clicking the SVG editor — it is faster and exact.
+
 Discover it at runtime:
 
 - `karakuri.help()` — the full method list and a worked example
@@ -36,6 +41,18 @@ Act:
 - `karakuri.setInput(name, 0|1)`, `karakuri.move(id, x, y)`,
   `karakuri.remove(id)`, `karakuri.clear()`, `karakuri.hint(n)`,
   `karakuri.grid(dCols, dRows)`.
+
+Notes:
+
+- `state().cost` is the CURRENT board; `state().bestCost` is your saved
+  record — they can differ. Only `verify()` advances scoring/solved.
+- Memory levels (`kind: "sequential"` — SR/D latch, register, counter,
+  CPU) are checked against `problem().sequence`: ordered `{in, expected}`
+  steps applied without resetting state, so a `clk` 0→1 edge latches.
+  Build the circuit and call `verify()`; it replays the whole sequence.
+  DFF pins are `d` (in), `clk` (in), `q` (out).
+- `place()`/`wire()` return `{error, ...}` (with `validIds`/`validPins`)
+  on bad input instead of throwing, so you can self-correct.
 
 Coordinates are integer grid cells: `x` = column (0 = left, inputs live
 there), `y` = row. Outputs sit on the right edge. Interface I/O is

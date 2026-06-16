@@ -31,6 +31,11 @@ const partInfo = (it: PaletteItem) => ({
   pins: pinsOfPart(it),
 });
 
+/** pins of a placed instance, tolerant of a stray instance referencing an unknown chip */
+const pinNames = (inst: Instance): string[] => {
+  try { return pinsOf(inst, game.chipLib).map(p => p.name); } catch { return []; }
+};
+
 const levelKind = (lv: Level) =>
   lv.demo ? 'demo' : lv.sandbox ? 'sandbox' : lv.substrate === 'switch' ? 'transistor' : lv.sequential ? 'sequential' : 'combinational';
 
@@ -71,12 +76,17 @@ function state() {
     id: i.id, kind: i.kind, chipId: i.chipId, name: i.name, x: i.x ?? 0, y: i.y ?? 0, locked: !!i.locked,
     pins: safePins(i).map(p => ({ name: p.name, dir: p.dir, value: vals.get(i.id + ':' + p.name) ?? null })),
   }));
+  const lv = game.level;
   return {
-    levelId: game.level.id,
+    levelId: lv.id,
     grid: { cols: game.cols, rows: game.rows },
     inputs: { ...game.inputs },
+    // `cost` is the CURRENT editing board; `bestCost` is your saved record (may differ).
     cost: game.cost,
     costUnit: game.substrate === 'switch' ? 'transistors' : 'NANDs',
+    par: lv.par,
+    solved: game.solved,
+    bestCost: game.best[lv.id] ?? null,
     settled: game.live.settled,
     instances,
     wires: game.circuit.wires.map(w => ({ from: { inst: w.a.inst, pin: w.a.pin }, to: { inst: w.b.inst, pin: w.b.pin } })),
@@ -116,7 +126,11 @@ function place(kind: Instance['kind'], x: number, y: number, chipId?: string) {
 
 function wire(fromInst: string, fromPin: string, toInst: string, toPin: string) {
   const find = (id: string) => game.circuit.instances.find(i => i.id === id);
-  if (!find(fromInst) || !find(toInst)) return { error: 'unknown instance id' };
+  const a = find(fromInst), b = find(toInst);
+  if (!a || !b) return { error: `unknown instance id: ${!a ? fromInst : toInst}`, validIds: game.circuit.instances.map(i => i.id) };
+  const ap = pinNames(a), bp = pinNames(b);
+  if (!ap.includes(fromPin)) return { error: `unknown pin "${fromPin}" on ${fromInst}`, validPins: ap };
+  if (!bp.includes(toPin)) return { error: `unknown pin "${toPin}" on ${toInst}`, validPins: bp };
   game.addWire({ inst: fromInst, pin: fromPin }, { inst: toInst, pin: toPin });
   return { ok: true };
 }
@@ -145,23 +159,24 @@ const help = () => ({
              'karakuri.state() — see placed parts, their pins, live values, and wires',
              'karakuri.verify() — check against the spec; returns failing rows if any'],
   methods: {
-    'problem()': 'current puzzle as structured data (goal, truth table / sequence, parts, par)',
-    'state()': 'current circuit: instances (with pin values), wires, cost, grid, input values',
+    'problem()': 'current puzzle as structured data (goal, truth table / sequence, parts, par). includes solved + bestCost.',
+    'state()': 'current EDITING board: instances (with pin values), wires, cost (current board), bestCost (saved record), par, solved, grid, input values',
     'parts()': 'available parts with their pin names/directions',
     'levels()': 'all levels with id / kind / solved',
     'goto(idOrIndex)': 'load a level (also updates the URL); returns problem()',
-    'place(kind,x,y,chipId?)': "place a part. kind ∈ nand|chip|dff|high|low|nmos|pmos. for chip pass chipId. returns {id}",
-    'wire(fromId,fromPin,toId,toPin)': 'connect two pins. interface pins: input id is "in_<NAME>" pin "y"; output id is "out_<NAME>" pin "x"',
+    'place(kind,x,y,chipId?)': "place a part. kind ∈ nand|chip|dff|high|low|nmos|pmos; for chip pass chipId. → {id} on success, else {error} ('cell occupied or out of bounds', or 'unknown chip: …' listing available chips)",
+    'wire(fromId,fromPin,toId,toPin)': "connect two pins. interface pins: input id 'in_<NAME>' pin 'y'; output id 'out_<NAME>' pin 'x'. → {ok:true}, else {error, validIds|validPins} so you can correct it without guessing",
     'unwireAt(instId,pin)': 'remove wires touching a pin',
-    'move(id,x,y)': 'move a placed part',
+    'move(id,x,y)': 'move a placed part → boolean (false if locked / occupied / out of bounds)',
     'remove(id)': 'delete a placed part (and its wires)',
     'clear()': 'remove everything you placed (keep interface I/O)',
-    'setInput(name,0|1)': 'drive an input pin to watch live behavior',
+    'setInput(name,0|1)': 'drive an input pin to watch live behavior → {ok, inputs} or {error}',
     'grid(dCols,dRows)': 'enlarge the editor grid (power users)',
     'hint(n?)': 'reveal hint n (1-based) for the current level',
-    'verify()': 'run the checker; {pass, oscillated, rows, failing}',
+    'verify()': 'run the checker; {pass, oscillated, rows, failing}. NOTE: verify() is what advances scoring/solved — cost in state() is just the current board.',
   },
   tip: 'Interface I/O is pre-placed and locked. From state(), inputs have id "in_X" (drive pin "y"); outputs have id "out_Y" (sink pin "x"). Example NOT: place("nand",6,4) → id; wire("in_X","y",id,"a"); wire("in_X","y",id,"b"); wire(id,"y","out_Y","x"); verify().',
+  sequential: "Memory levels (kind:'sequential' — SR/D latch, register, counter, CPU) are checked against problem().sequence: an ordered list of {in, expected} steps applied WITHOUT resetting state between them, so a rising clk edge (e.g. clk 0→1) latches values — that is how time/clocking is modeled. Just build the circuit and call verify(); it replays the whole sequence and returns per-step failing rows. To explore interactively, drive inputs yourself with setInput (e.g. setInput('clk',0) then setInput('clk',1) to pulse a clock) and read pin values from state(). DFF pins: d (in), clk (in), q (out).",
 });
 
 export interface KarakuriApi {
@@ -191,5 +206,20 @@ export function installAgentApi() {
     hint, verify,
   };
   (globalThis as unknown as { karakuri: KarakuriApi }).karakuri = api;
+
+  // discoverability: make it obvious — to humans AND to AI agents reading the
+  // console / DOM — that the page can be driven programmatically.
+  try {
+    // a one-line console banner an agent sees the moment it reads console messages
+    console.info(
+      '%cスイッチからCPU%c  operation API ready — call %ckarakuri.help()%c to read & solve puzzles programmatically. Docs: ./llms.txt',
+      'font-weight:bold;color:#d8a657', 'color:#8b96a8', 'font-weight:bold;color:#6cc6ff', 'color:#8b96a8',
+    );
+    // a DOM hint for agents that inspect attributes instead of the console
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-karakuri-api', 'window.karakuri — call karakuri.help(); docs at ./llms.txt');
+    }
+  } catch { /* non-browser / headless: ignore */ }
+
   return api;
 }
