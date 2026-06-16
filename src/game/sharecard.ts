@@ -118,9 +118,10 @@ export async function makeShareCard(d: CardData): Promise<Blob> {
   ctx.fillStyle = d.solved ? C.brass : C.muted; ctx.font = `500 20px ${MONO}`;
   ctx.fillText(d.solved ? (ja ? '課題クリア' : 'SOLVED') : (ja ? '挑戦中・未クリア' : 'IN PROGRESS · NOT CLEARED YET'), pad, 230);
 
-  // headline (level title)
+  // headline (level title) — clamp to the LEFT column so it never runs under
+  // the right-hand panel (circuit / truth table) which begins at x=760
   ctx.fillStyle = C.paper; ctx.font = `600 58px ${DISP}`;
-  let title = d.title; const maxW = W - pad * 2;
+  let title = d.title; const maxW = 760 - pad - 28;
   while (ctx.measureText(title).width > maxW && title.length > 4) title = title.slice(0, -1);
   ctx.fillText(title === d.title ? title : title + '…', pad, 300);
 

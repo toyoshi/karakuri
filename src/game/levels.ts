@@ -37,6 +37,7 @@ export interface Level {
   par: number;            // reference cost (transistors for switch levels, NANDs for gate levels)
   sandbox?: boolean;      // free-build: no goal, full palette, fixed toggleable I/O
   demo?: boolean;         // wordless intro: pre-wired, just toggle inputs and watch it light
+  derived?: boolean;      // side-quest: applies a part you built (doesn't unlock the main spine)
   prewired?: { instances: Instance[]; wires: { a: { inst: string; pin: string }; b: { inst: string; pin: string } }[] };
 }
 
@@ -176,6 +177,23 @@ export const LEVELS: Level[] = [
     produces: { id: 'XNOR', name: 'XNOR', glyph: '⊙' },
     par: 5,
   },
+  /* ---- derived side-quest: many equal-detectors make a comparator ---- */
+  {
+    id: 'eq4', chapter: '基本ゲート', chapterEn: 'Basic gates',
+    glyph: '=4', navName: '4bit一致', navNameEn: '4-bit equal', derived: true,
+    title: '4ビット一致比較器', titleEn: '4-bit equality',
+    concept: '一桁ずつ比べて束ねる', conceptEn: 'compare each bit, then AND',
+    goal: '2つの4ビットの数 A（a0〜a3）と B（b0〜b3）が完全に等しいときだけ eq を 1 に。各桁を XNOR で比べ、その結果を全部 AND でまとめよう。',
+    goalEn: 'Output eq = 1 only when two 4-bit numbers A (a0–a3) and B (b0–b3) are identical. Compare each bit with XNOR, then AND all the results together.',
+    idea: '「等しい」とは「どの桁も一致」。一致検出器(XNOR)を桁ごとに置き、AND で「全部そろったか」を見る。これがコンピュータの比較・分岐の芯。先には進まないが、君の XNOR が“判断”に化ける。',
+    ideaEn: 'Equal means "every bit matches": one XNOR per bit, all AND-ed. This is the core of how a computer compares and branches. A side-quest, but your XNOR becomes a decision.',
+    cols: 18, rows: 12,
+    inputs: [{ name: 'a0', y: 1 }, { name: 'a1', y: 2 }, { name: 'a2', y: 3 }, { name: 'a3', y: 4 }, { name: 'b0', y: 6 }, { name: 'b1', y: 7 }, { name: 'b2', y: 8 }, { name: 'b3', y: 9 }],
+    outputs: [{ name: 'eq', y: 5 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'XNOR' }, { kind: 'chip', chipId: 'AND' }],
+    spec: (m) => ({ eq: ((m.a0 ? 1 : 0) === (m.b0 ? 1 : 0) && (m.a1 ? 1 : 0) === (m.b1 ? 1 : 0) && (m.a2 ? 1 : 0) === (m.b2 ? 1 : 0) && (m.a3 ? 1 : 0) === (m.b3 ? 1 : 0) ? 1 : 0) as Bit }),
+    par: 35,
+  },
 
   /* ---------- Chapter 2 — arithmetic ---------- */
   {
@@ -211,6 +229,28 @@ export const LEVELS: Level[] = [
     spec: (m) => { const s = (m.A ? 1 : 0) + (m.B ? 1 : 0) + (m.Cin ? 1 : 0); return { S: (s & 1) as Bit, Cout: (s >= 2 ? 1 : 0) as Bit }; },
     produces: { id: 'FADD', name: '全加算', nameEn: 'Full-add', glyph: 'Σ' },
     par: 14,
+  },
+  /* ---- derived side-quest: chain full adders into a real multi-bit adder ---- */
+  {
+    id: 'add4', chapter: '算術', chapterEn: 'Arithmetic',
+    glyph: '4+', navName: '4bit加算', navNameEn: '4-bit add', derived: true,
+    title: '4ビット加算器', titleEn: '4-bit adder',
+    concept: '全加算器を4つ連ねる', conceptEn: 'chain four full adders',
+    goal: '作った全加算器を4つ並べ、4ビットの数 A（a0〜a3）と B（b0〜b3）を足す。各桁の繰り上がりを次の桁の Cin へ送る（リップルキャリー）。和 s0〜s3 と最上位の繰り上がり c を出そう。',
+    goalEn: 'Place four of your full adders to add two 4-bit numbers A (a0–a3) and B (b0–b3). Feed each carry into the next bit (ripple carry). Output the sum s0–s3 and the final carry c.',
+    idea: '1ビットの全加算器が、そのまま「桁」になる。繰り上がりを鎖のように next の Cin へ渡すだけで、何ビットの足し算も作れる——これが本物の足し算回路だ。この課題は先に進まないが、君の部品が“数”を扱えることが分かる。',
+    ideaEn: 'A 1-bit full adder simply becomes a digit. Pass each carry along the chain and you can add any width — this is a real arithmetic unit. A side-quest that goes nowhere, but it shows your parts can handle numbers.',
+    cols: 20, rows: 12,
+    inputs: [{ name: 'a0', y: 1 }, { name: 'a1', y: 2 }, { name: 'a2', y: 3 }, { name: 'a3', y: 4 }, { name: 'b0', y: 6 }, { name: 'b1', y: 7 }, { name: 'b2', y: 8 }, { name: 'b3', y: 9 }],
+    outputs: [{ name: 's0', y: 1 }, { name: 's1', y: 3 }, { name: 's2', y: 5 }, { name: 's3', y: 7 }, { name: 'c', y: 9 }],
+    palette: [{ kind: 'nand' }, { kind: 'chip', chipId: 'FADD' }, { kind: 'chip', chipId: 'HADD' }, { kind: 'low' }],
+    spec: (m) => {
+      const A = (m.a0 ? 1 : 0) + (m.a1 ? 2 : 0) + (m.a2 ? 4 : 0) + (m.a3 ? 8 : 0);
+      const B = (m.b0 ? 1 : 0) + (m.b1 ? 2 : 0) + (m.b2 ? 4 : 0) + (m.b3 ? 8 : 0);
+      const s = A + B;
+      return { s0: (s & 1) as Bit, s1: ((s >> 1) & 1) as Bit, s2: ((s >> 2) & 1) as Bit, s3: ((s >> 3) & 1) as Bit, c: ((s >> 4) & 1) as Bit };
+    },
+    par: 56,
   },
 
   /* ---------- Chapter 3 — memory (feedback!) ---------- */

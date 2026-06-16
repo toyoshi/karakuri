@@ -94,6 +94,20 @@ export class Game {
   private gatePinNets: Map<string, number> = new Map();
   liveGate = $state<{ vals: Map<string, Bit>; settled: boolean; ticks: number }>({ vals: new Map(), settled: true, ticks: 0 });
 
+  constructor() {
+    // one-time repair of the old vacuous-clear bug: a best of 0 was impossible
+    // for a real solve, so drop those records and un-mark the level as cleared.
+    let changed = false;
+    for (const id of Object.keys(this.best)) {
+      if (!(this.best[id] > 0)) { delete this.best[id]; this.completed.delete(id); changed = true; }
+    }
+    if (changed) {
+      this.best = { ...this.best };
+      this.completed = new Set(this.completed);
+      try { localStorage.setItem(LS_BEST, JSON.stringify(this.best)); localStorage.setItem(LS_DONE, JSON.stringify([...this.completed])); } catch { /* ignore */ }
+    }
+  }
+
   get level(): Level { return LEVELS[this.levelIdx]; }
   get totalLevels(): number { return LEVELS.length; }
   get substrate(): 'gate' | 'switch' { return this.level.substrate ?? 'gate'; }
@@ -415,7 +429,7 @@ export class Game {
   /** data for the share card / win modal (single source of truth) */
   cardData(): CardData {
     const lv = this.level, ja = this.lang === 'ja';
-    const n = this.best[lv.id] ?? this.cost;
+    const n = this.best[lv.id] > 0 ? this.best[lv.id] : this.cost;
     const table = (!lv.sequential && !lv.sandbox && lv.spec)
       ? { inputs: lv.inputs.map(p => p.name), outputs: lv.outputs.map(p => p.name), rows: truthTable(lv.inputs.map(p => p.name), lv.spec).map(r => ({ in: r.in, out: r.expected })) }
       : null;
@@ -470,7 +484,7 @@ export class Game {
   }
   shareText(): string {
     const lv = this.level, ja = this.lang === 'ja';
-    const n = this.best[lv.id] ?? this.cost;
+    const n = this.best[lv.id] > 0 ? this.best[lv.id] : this.cost;
     const unit = this.substrate === 'switch' ? (ja ? 'トランジスタ' : 'transistors') : 'NAND';
     return ja
       ? `「${lv.title}」を ${unit} ${n}個で組み上げた！ — スイッチからCPU：スイッチひとつから計算機を作る`
@@ -479,11 +493,11 @@ export class Game {
 
   /** aggregate stats for the "compete on totals" loop */
   get totalNands(): number {
-    let s = 0; for (const lv of LEVELS) if (lv.substrate !== 'switch' && this.best[lv.id] !== undefined) s += this.best[lv.id]; return s;
+    let s = 0; for (const lv of LEVELS) if (lv.substrate !== 'switch' && this.best[lv.id] > 0) s += this.best[lv.id]; return s;
   }
   get clearedCount(): number { return [...this.completed].filter(id => LEVELS.some(l => l.id === id)).length; }
-  get starCount(): number { return LEVELS.filter(l => this.best[l.id] !== undefined && this.best[l.id] <= l.par).length; }
-  isOptimal(id: string): boolean { const lv = LEVELS.find(l => l.id === id); return !!lv && this.best[id] !== undefined && this.best[id] <= lv.par; }
+  get starCount(): number { return LEVELS.filter(l => this.best[l.id] > 0 && this.best[l.id] <= l.par).length; }
+  isOptimal(id: string): boolean { const lv = LEVELS.find(l => l.id === id); return !!lv && this.best[id] > 0 && this.best[id] <= lv.par; }
 
   private earnChip(lv: Level) {
     if (!lv.produces) return;
@@ -499,8 +513,10 @@ export class Game {
 
   private recordBest(id: string, gates: number, delay: number): { gate: boolean; delay: boolean } {
     let gate = false, del = false;
-    if (this.best[id] === undefined || gates < this.best[id]) {
-      gate = this.best[id] !== undefined && gates < this.best[id];
+    const prev = this.best[id];
+    const hadValid = prev > 0;                       // treat a missing / bogus 0 record as "none"
+    if (!hadValid || gates < prev) {
+      gate = hadValid && gates < prev;
       this.best = { ...this.best, [id]: gates };
       localStorage.setItem(LS_BEST, JSON.stringify(this.best));
     }
