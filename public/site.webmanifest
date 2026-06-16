@@ -1,0 +1,18 @@
+{
+  "name": "スイッチからCPU (Switch → CPU)",
+  "short_name": "Switch→CPU",
+  "description": "Build a computer from a single switch — transistors to a CPU, free and in the browser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0e13",
+  "theme_color": "#0b0e13",
+  "icons": [
+    {
+      "src": "./og.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
