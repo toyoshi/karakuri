@@ -22,6 +22,8 @@ const LS_LANG = 'karakuri.lang';
 const LS_BEST = 'karakuri.best.v1';
 const LS_BESTD = 'karakuri.bestdelay.v1';
 const LS_CIRCUITS = 'karakuri.circuits.v1';
+const LS_GRID = 'karakuri.grid.v1';
+const GRID_MAX_EXTRA = 30;
 
 export type Tool =
   | { type: 'wire' }
@@ -54,6 +56,9 @@ function loadBestD(): Record<string, number> {
 function loadCircuits(): Record<string, Circuit> {
   try { return JSON.parse(localStorage.getItem(LS_CIRCUITS) || '{}'); } catch { return {}; }
 }
+function loadGrid(): Record<string, { dc: number; dr: number }> {
+  try { return JSON.parse(localStorage.getItem(LS_GRID) || '{}'); } catch { return {}; }
+}
 
 export class Game {
   circuit = $state<Circuit>({ instances: [], wires: [] });
@@ -84,6 +89,11 @@ export class Game {
   get level(): Level { return LEVELS[this.levelIdx]; }
   get totalLevels(): number { return LEVELS.length; }
   get substrate(): 'gate' | 'switch' { return this.level.substrate ?? 'gate'; }
+
+  // power-user grid expansion: enlarge the editor per level (e.g. build a CPU from NAND only)
+  gridExpand = $state<Record<string, { dc: number; dr: number }>>(loadGrid());
+  get cols(): number { return this.level.cols + (this.gridExpand[this.level.id]?.dc ?? 0); }
+  get rows(): number { return this.level.rows + (this.gridExpand[this.level.id]?.dr ?? 0); }
 
   compiled = $derived(compile(this.circuit, this.chipLib));
 
@@ -146,6 +156,30 @@ export class Game {
     return { instances: [...base.instances, ...userInsts], wires };
   }
 
+  /* ---------- grid size (power users) ---------- */
+  /** keep the locked output pins glued to the right edge as the grid grows/shrinks */
+  private placeOutputsAtEdge() {
+    const right = this.cols - 1;
+    for (const i of this.circuit.instances) if (i.kind === 'output') i.x = right;
+  }
+  private persistGrid() { try { localStorage.setItem(LS_GRID, JSON.stringify(this.gridExpand)); } catch {} }
+  growGrid(dc: number, dr: number) {
+    const e = this.gridExpand[this.level.id] ?? { dc: 0, dr: 0 };
+    const next = { dc: Math.max(0, Math.min(GRID_MAX_EXTRA, e.dc + dc)), dr: Math.max(0, Math.min(GRID_MAX_EXTRA, e.dr + dr)) };
+    this.gridExpand = { ...this.gridExpand, [this.level.id]: next };
+    this.persistGrid();
+    this.placeOutputsAtEdge();
+    this.touch();
+  }
+  resetGrid() {
+    if (!this.gridExpand[this.level.id]) return;
+    const { [this.level.id]: _drop, ...rest } = this.gridExpand;
+    this.gridExpand = rest;
+    this.persistGrid();
+    this.placeOutputsAtEdge();
+    this.touch();
+  }
+
   /* ---------- lifecycle ---------- */
   loadLevel(idx: number) {
     idx = Math.max(0, Math.min(LEVELS.length - 1, idx));
@@ -154,6 +188,7 @@ export class Game {
     const lv = LEVELS[idx];
     const saved = this.circuits[lv.id];
     this.circuit = saved ? this.reviveCircuit(saved, lv) : initialCircuit(lv);
+    this.placeOutputsAtEdge();                   // honor any saved grid expansion for this level
     // inputs usually start ON so wires show life; the demo starts OFF so pressing them lights the lamp
     this.inputs = Object.fromEntries(lv.inputs.map(p => [p.name, (lv.demo ? 0 : 1) as Bit]));
     this.tool = { type: 'wire' };
@@ -444,11 +479,14 @@ export class Game {
   }
 
   resetProgress() {
-    this.chipLib = new Map(); this.completed = new Set(); this.best = {}; this.bestDelay = {}; this.circuits = {};
-    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST); localStorage.removeItem(LS_BESTD); localStorage.removeItem(LS_CIRCUITS);
+    this.chipLib = new Map(); this.completed = new Set(); this.best = {}; this.bestDelay = {}; this.circuits = {}; this.gridExpand = {};
+    localStorage.removeItem(LS_CHIPS); localStorage.removeItem(LS_DONE); localStorage.removeItem(LS_BEST); localStorage.removeItem(LS_BESTD); localStorage.removeItem(LS_CIRCUITS); localStorage.removeItem(LS_GRID);
     this.circuit = { instances: [], wires: [] };  // so loadLevel's save-on-leave is a no-op
     this.loadLevel(0);
   }
 }
 
 export const game = new Game();
+
+// dev convenience: reach the live store from the console / e2e checks
+if (import.meta.env.DEV) (globalThis as Record<string, unknown>).game = game;

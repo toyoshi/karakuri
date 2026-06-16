@@ -1,7 +1,6 @@
 <script lang="ts">
   import { game } from './store.svelte';
   import { CELL, anchors, cellH, pinXY } from './layout';
-  import { gridPx } from './levels';
   import { pinsOf } from '../sim/circuit';
   import type { Instance, Wire, PinRef } from '../sim/circuit';
 
@@ -16,7 +15,9 @@
   let group = $state<null | { lastGX: number; lastGY: number }>(null);                  // moving the selection
 
   const lv = $derived(game.level);
-  const px = $derived(gridPx(lv));
+  const px = $derived({ w: game.cols * CELL, h: game.rows * CELL });   // effective grid (honors power-user expansion)
+  const expanded = $derived(!!game.gridExpand[lv.id]);
+  const L = (ja: string, en: string) => (game.lang === 'ja' ? ja : en);
   const insts = $derived(game.circuit.instances);
   const byId = $derived(new Map(insts.map(i => [i.id, i])));
   const movable = (k: string) => k === 'nand' || k === 'chip' || k === 'nmos' || k === 'pmos' || k === 'high' || k === 'low' || k === 'dff';
@@ -31,7 +32,7 @@
     return m ? p.matrixTransform(m.inverse()) : ({ x: 0, y: 0 } as DOMPoint);
   }
   const cellFree = (gx: number, gy: number, exceptId?: string) =>
-    gx >= 0 && gy >= 0 && gx < lv.cols && gy < lv.rows &&
+    gx >= 0 && gy >= 0 && gx < game.cols && gy < game.rows &&
     !insts.some(i => i.id !== exceptId && i.x === gx && i.y === gy);
 
   /** nearest pin to a point, within snap radius */
@@ -206,13 +207,21 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="editor-wrap" bind:this={wrapEl}>
+  {#if !lv.demo}
+    <div class="gridctl" title={L('レイアウトを広げる（NANDだけで大きな回路を作る人向け）', 'Enlarge the grid — for building big circuits from NAND alone')}>
+      <span class="dim">{game.cols}×{game.rows}</span>
+      <button onclick={() => game.growGrid(2, 0)} aria-label={L('横を広げる', 'wider')}>＋幅</button>
+      <button onclick={() => game.growGrid(0, 2)} aria-label={L('縦を広げる', 'taller')}>＋高</button>
+      {#if expanded}<button class="reset" onclick={() => game.resetGrid()} aria-label={L('元に戻す', 'reset')}>↺</button>{/if}
+    </div>
+  {/if}
   <svg bind:this={svgEl} viewBox="0 0 {px.w} {px.h}" preserveAspectRatio="xMidYMid meet"
        onpointerdown={bgDown} onpointermove={onMove} onpointerup={onUp} onclick={onBgClick}
        class:placing={game.tool.type === 'place'} class:deleting={game.tool.type === 'delete'} class:selecting={game.tool.type === 'select'}
        role="application" aria-label="回路エディタ">
     <g class="grid">
-      {#each Array(lv.cols + 1) as _, c}<line x1={c * CELL} y1="0" x2={c * CELL} y2={px.h} />{/each}
-      {#each Array(lv.rows + 1) as _, r}<line x1="0" y1={r * CELL} x2={px.w} y2={r * CELL} />{/each}
+      {#each Array(game.cols + 1) as _, c}<line x1={c * CELL} y1="0" x2={c * CELL} y2={px.h} />{/each}
+      {#each Array(game.rows + 1) as _, r}<line x1="0" y1={r * CELL} x2={px.w} y2={r * CELL} />{/each}
     </g>
 
     <!-- wires (keyed so the flow animation stays continuous across edits) -->
@@ -318,6 +327,13 @@
 
 <style>
   .editor-wrap { position: relative; width: 100%; height: 100%; display: grid; place-items: center; padding: var(--sp-4); overflow: auto; }
+  .gridctl { position: absolute; top: 10px; right: 12px; z-index: 6; display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-radius: var(--r-full); border: 1px solid var(--line); background: color-mix(in srgb, var(--ink-800) 88%, transparent); backdrop-filter: blur(4px); }
+  .gridctl .dim { font-family: var(--font-mono); font-size: 0.66rem; color: var(--muted); padding-left: 4px; }
+  .gridctl button { border: 1px solid var(--line-strong); background: var(--ink-700); color: var(--paper-2); border-radius: var(--r-full);
+    padding: 2px 9px; cursor: pointer; font-family: inherit; font-size: 0.68rem; transition: border-color 0.14s, color 0.14s; }
+  .gridctl button:hover { border-color: var(--brass); color: var(--brass); }
+  .gridctl .reset { color: var(--muted); }
   .tooltip { position: absolute; z-index: 5; pointer-events: none; max-width: 220px;
     background: var(--ink-700); border: 1px solid var(--line-strong); border-radius: var(--r-2);
     padding: 8px 11px; box-shadow: var(--sh-2); display: flex; flex-direction: column; gap: 3px; }
